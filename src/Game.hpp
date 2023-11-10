@@ -1,5 +1,6 @@
 #pragma once
 
+#include "KEYMACROS.hpp" // Makes key names easier
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
 #include <iostream> // Debugging output
@@ -13,6 +14,9 @@ struct Rect {
 namespace vmath {
 	sf::Vector2f normalizeVector(sf::Vector2f vector);
 	float getMagnitude(sf::Vector2f vector);
+	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
+	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
+	sf::Vector2f divideVector(sf::Vector2f v1, float i);
 }
 
 /* Game Management */
@@ -25,7 +29,6 @@ public:
 	bool isCircle = false;
 	bool isOverlapped = false;
 	bool isRigid = false;
-	bool isVisible = true;
 };
 
 class RectCollider : public Collider {
@@ -145,6 +148,7 @@ private:
 	Collider* collider;
 	Transform transform;
 	ShapeComponent shape;
+	int layer = 1; // Layer 0 = UI
 public:
 	objectRef id;
 
@@ -153,6 +157,8 @@ public:
 	GameObject(Collider *col);
 	~GameObject();
 
+	int getLayer() { return layer; }
+	void setLayer(int l) { layer = l; }
 	Collider* getCollider();
 	ShapeComponent& getShapeComponent();
 	Transform& getTransform();
@@ -167,17 +173,26 @@ private:
 	sf::Event event;
 	sf::VideoMode videoMode;
 
+	// Keypress handling
+	bool showColliders = false;
+	bool f1Held = false;
+
+	// Camera data
+	Transform *cameraTransform;
+
+	// Collisions
 	CollisionManager *collisionManager;
 
-	// For keeping track of a unique id
+	// Gameobjects
 	objectRef nextId = 1;
-	
 	std::vector<GameObject*> gameObjects;
 
 	// Private functions
 	void init();
 public:
 	sf::RenderWindow* window;
+	
+	sf::Vector2f playerPosition;
 
 	// Constructors
 	Game();
@@ -195,6 +210,7 @@ public:
 	// Object functions
 	objectRef makeObjectRef();
 	GameObject *makeObject();
+	GameObject* makeObject(Collider *col);
 	GameObject *getObject(objectRef targId);
 
 	// Controller

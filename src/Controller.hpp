@@ -17,8 +17,6 @@
 class Controller {
 private:
 	// This is a map containing all the needed inputs and whether they were pressed between the current and last update
-	std::map<sf::Keyboard::Key, void *> keyDownEvents;
-	std::map<sf::Keyboard::Key, void *> keyUpEvents;
 	std::map<sf::Keyboard::Key, bool> keyDownMap;
 	// Private functions
 public:
@@ -26,16 +24,13 @@ public:
 	Controller();
 	~Controller();
 
-	// Input handler functions
-	void setKeyDownEvent(const sf::Keyboard::Key key, void *eventHandler);
-	void setKeyUpEvent(const sf::Keyboard::Key key, void *eventHandler);
-
 	// Key state find functions for other classes
 	void handleKeyUp(const sf::Keyboard::Key key);
 	void handleKeyDown(const sf::Keyboard::Key key);
 
 	// Get key down
 	bool getKeyDown(const sf::Keyboard::Key key);
+	bool getKeyUp(const sf::Keyboard::Key key);
 
 	void* mouseMoveHandler;
 	// Calls an external mouse update handler function

@@ -1,6 +1,6 @@
 #pragma once
 #include "Game.hpp" // Engine
-#include "KEYMACROS.hpp" // Makes key names easier
+
 /*
 	This file contains definitions for the function of the game utilizing the engine. Keep each individual function inside of a class to make management and organization easier.
 */

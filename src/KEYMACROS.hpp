@@ -51,3 +51,15 @@
 #define KEYCODERSHIFT sf::Keyboard::RShift
 #define KEYCODELCNTRL sf::Keyboard::LControl
 #define KEYCODERCNTRL sf::Keyboard::RControl
+#define KEYCODEF1 sf::Keyboard::F1
+#define KEYCODEF2 sf::Keyboard::F2
+#define KEYCODEF3 sf::Keyboard::F3
+#define KEYCODEF4 sf::Keyboard::F4
+#define KEYCODEF5 sf::Keyboard::F5
+#define KEYCODEF6 sf::Keyboard::F6
+#define KEYCODEF7 sf::Keyboard::F7
+#define KEYCODEF8 sf::Keyboard::F8
+#define KEYCODEF9 sf::Keyboard::F9
+#define KEYCODEF10 sf::Keyboard::F10
+#define KEYCODEF11 sf::Keyboard::F11
+#define KEYCODEF12 sf::Keyboard::F12

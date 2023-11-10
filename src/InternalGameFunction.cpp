@@ -10,6 +10,9 @@ void HealthBar::init() {
 	bottomBar = game->makeObject();
 	topBar = game->makeObject();
 
+	topBar->setLayer(0);
+	bottomBar->setLayer(0);
+
 	bottomBarShape = &bottomBar->getShapeComponent();
 	bottomBarTransform = &bottomBar->getTransform();
 
@@ -63,15 +66,17 @@ void PlayerControl::updatePlayer() {
 	if (col != nullptr) {
 		Rect newCollider;
 
-		sf::Vector2f topLeft = playerObj->getTransform().getPosition();
-		sf::Vector2f size = playerObj->getTransform().getSize();
+		sf::Vector2f offset = playerObj->getTransform().getPosition();
+		sf::Vector2f size = playerObj->getShapeComponent().rectSize;
 
-		newCollider.left = topLeft.x;
-		newCollider.top = topLeft.y;
-		newCollider.right = topLeft.x + size.x;
-		newCollider.bottom = topLeft.y + size.y;
+		newCollider.left = offset.x - size.x/2;
+		newCollider.top = offset.y - size.y/2;
+		newCollider.right = newCollider.left + size.x;
+		newCollider.bottom = newCollider.top + size.y;
 		static_cast<RectCollider*>(col)->setCollider(newCollider);
 	}
+
+	game->playerPosition = playerObj->getTransform().getPosition();
 }
 
 void PlayerControl::onWDown() {
@@ -93,7 +98,7 @@ void PlayerControl::init() {
 	inputForce = 0.5f;
 	drag = 0.1;
 	position = sf::Vector2f(80.0f,200.0f);
-	playerObj = game->makeObject();
+	playerObj = game->makeObject(static_cast<Collider*>(new RectCollider(0,0,100,100)));
 }
 
 PlayerControl::PlayerControl(Game *engine) {

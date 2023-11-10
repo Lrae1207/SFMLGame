@@ -8,23 +8,8 @@ Controller::Controller() {
 Controller::~Controller() {
 }
 
-/* Sets the response for the given keydown event to the given function pointer */
-void Controller::setKeyDownEvent(const sf::Keyboard::Key key, void *eventHandler) {
-	keyDownEvents.insert({ key,eventHandler });
-}
-
-/* Sets the response for the given keyup event to the given function pointer */
-void Controller::setKeyUpEvent(const sf::Keyboard::Key key, void *eventHandler) {
-	keyUpEvents.insert({key,eventHandler});
-	// non functional
-}
-
 /* Calls the response for the given keyup event and updates the state of the key */
 void Controller::handleKeyUp(const sf::Keyboard::Key key) {
-	if (keyUpEvents.find(key) != keyUpEvents.end()) {
-		void (*f)() = static_cast<void(*)()>(keyUpEvents[key]);
-		(*f)();
-	}
 	// If the key hasn't been added yet
 	if (keyDownMap.find(key) == keyDownMap.end()) {
 		keyDownMap.insert({ key,false });
@@ -36,10 +21,6 @@ void Controller::handleKeyUp(const sf::Keyboard::Key key) {
 
 /* Calls the response for the given keydown event and updates the state of the key */
 void Controller::handleKeyDown(const sf::Keyboard::Key key) {
-	if (keyDownEvents.find(key) != keyDownEvents.end()) {
-		void (*f)() = static_cast<void(*)()>(keyDownEvents[key]);
-		(*f)();
-	}
 	// If the key hasn't been added yet
 	if (keyDownMap.find(key) == keyDownMap.end()) {
 		keyDownMap.insert({key,true});
@@ -53,6 +34,13 @@ bool Controller::getKeyDown(const sf::Keyboard::Key key) {
 		return false;
 	}
 	return keyDownMap[key];
+}
+
+bool Controller::getKeyUp(const sf::Keyboard::Key key) {
+	if (keyDownMap.find(key) == keyDownMap.end()) {
+		return true;
+	}
+	return !keyDownMap[key];
 }
 
 
