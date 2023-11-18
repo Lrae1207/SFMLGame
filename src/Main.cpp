@@ -7,11 +7,11 @@
 
 int main() {
 	Game game;
-	
-	// Create an instance of each internal game function object 
-	PlayerControl playerController(&game);
-	HealthBar healthBar(&game);
 
+	// Create an instance of each internal game function object
+	Rocket rocket(&game);
+
+	PlayerControl playerController(&game,&rocket);
 	// While the game is active
 	while (game.windowActive()) {
 		// Update and render game
@@ -20,7 +20,7 @@ int main() {
 
 		// Call all internal game function object update functions
 		playerController.update();
-		healthBar.update();
 	}
+
 	return 0;
 }

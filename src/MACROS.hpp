@@ -7,6 +7,7 @@
 #include <SFML/Window.hpp>
 #include <SFML/Network.hpp>
 
+/* Key macros */
 #define KEYCODEA sf::Keyboard::A
 #define KEYCODEB sf::Keyboard::B
 #define KEYCODEC sf::Keyboard::C
@@ -63,3 +64,13 @@
 #define KEYCODEF10 sf::Keyboard::F10
 #define KEYCODEF11 sf::Keyboard::F11
 #define KEYCODEF12 sf::Keyboard::F12
+#define KEYCODEESC sf::Keyboard::Escape
+#define KEYCODESPACE sf::Keyboard::Space
+
+/* Color macros */
+#define C_BLACK sf::Color(0,0,0)
+#define C_DGRAY1 sf::Color(50,50,50)
+#define C_DGRAY2 sf::Color(100,100,100)
+#define C_LGRAY1 sf::Color(150,150,150)
+#define C_LGRAY2 sf::Color(200,200,200)
+#define C_WHITE sf::Color(255,255,255)

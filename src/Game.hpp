@@ -1,6 +1,6 @@
 #pragma once
 
-#include "KEYMACROS.hpp" // Makes key names easier
+#include "MACROS.hpp" // Makes key names easier
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
 #include <iostream> // Debugging output
@@ -68,7 +68,7 @@ public:
 /*
 	Class representing the shape to be rendered on an object
 */
-enum shape_type {rectangle, circle, polygon};
+enum shape_type { rectangle, circle, polygon };
 class ShapeComponent {
 public:
 	shape_type shapeType;
@@ -96,7 +96,7 @@ public:
 	No clue why I made this. I will probably use this for an image texture holder.
 */
 class SpriteComponent {
-public:	
+public:
 	sf::Texture texture;
 	// Constructors and destructors
 	SpriteComponent();
@@ -108,7 +108,7 @@ public:
 class Transform {
 public:
 	// Transform private properties
-	//sf::Vector2f position;
+	// sf::Vector2f position;
 	sf::Vector2f size;
 	sf::Vector2f origin;
 	float rotationDegree;
@@ -154,7 +154,7 @@ public:
 
 	// Constructor and destructor
 	GameObject();
-	GameObject(Collider *col);
+	GameObject(Collider* col);
 	~GameObject();
 
 	int getLayer() { return layer; }
@@ -176,12 +176,14 @@ private:
 	// Keypress handling
 	bool showColliders = false;
 	bool f1Held = false;
+	bool paused = false;
+	bool escHeld = false;
 
 	// Camera data
-	Transform *cameraTransform;
+	Transform* cameraTransform;
 
 	// Collisions
-	CollisionManager *collisionManager;
+	CollisionManager* collisionManager;
 
 	// Gameobjects
 	objectRef nextId = 1;
@@ -191,7 +193,7 @@ private:
 	void init();
 public:
 	sf::RenderWindow* window;
-	
+
 	sf::Vector2f playerPosition;
 
 	// Constructors
@@ -200,6 +202,7 @@ public:
 
 	// Accessor
 	const bool windowActive() const;
+	bool isPaused() { return paused; }
 
 	// Game update and render functions
 	void update();
@@ -209,9 +212,9 @@ public:
 
 	// Object functions
 	objectRef makeObjectRef();
-	GameObject *makeObject();
-	GameObject* makeObject(Collider *col);
-	GameObject *getObject(objectRef targId);
+	GameObject* makeObject();
+	GameObject* makeObject(Collider* col);
+	GameObject* getObject(objectRef targId);
 
 	// Controller
 	Controller controller;

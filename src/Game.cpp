@@ -19,7 +19,7 @@ float vmath::getMagnitude(sf::Vector2f vector) {
 }
 
 sf::Vector2f vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
-	return sf::Vector2f(v1.x+v2.x,v1.y+v2.y);
+	return sf::Vector2f(v1.x + v2.x, v1.y + v2.y);
 }
 
 /* Returns v1 - v2 */
@@ -28,12 +28,12 @@ sf::Vector2f vmath::subtractVectors(sf::Vector2f v1, sf::Vector2f v2) {
 }
 
 sf::Vector2f vmath::divideVector(sf::Vector2f v1, float i) {
-	return sf::Vector2f(v1.x/i,v1.y/i);
+	return sf::Vector2f(v1.x / i, v1.y / i);
 }
 
 /* Default constructor and destructor for ShapeComponent */
 ShapeComponent::ShapeComponent() {
-	fillColor = sf::Color(255,0,255,255);
+	fillColor = sf::Color(255, 0, 255, 255);
 	outlineColor = sf::Color(0, 0, 0, 255);
 	outlineThickness = 0.0f;
 	shapeType = rectangle;
@@ -42,7 +42,7 @@ ShapeComponent::ShapeComponent() {
 
 	rectSize = sf::Vector2f(50.0f, 50.0f);
 	positionOffset = sf::Vector2f(0.0f, 00.0f);
-	origin = sf::Vector2f(25.0f, 25.0f);
+	origin = sf::Vector2f(0.0f, 0.0f);
 }
 
 ShapeComponent::~ShapeComponent() {
@@ -55,7 +55,7 @@ ShapeComponent::~ShapeComponent() {
 sf::CircleShape ShapeComponent::constructCircle() {
 	sf::CircleShape returnShape = sf::CircleShape(circleRadius);
 	returnShape.setPosition(positionOffset);
-	returnShape.setOrigin(origin);
+	returnShape.setOrigin(sf::Vector2f(rectSize.x/2,rectSize.y/2));
 	returnShape.setFillColor(fillColor);
 	returnShape.setOutlineColor(outlineColor);
 	returnShape.setOutlineThickness(outlineThickness);
@@ -69,8 +69,7 @@ sf::RectangleShape ShapeComponent::constructRectangle() {
 	sf::RectangleShape returnShape;
 	returnShape.setSize(rectSize);
 	returnShape.setPosition(positionOffset);
-	returnShape.setOrigin(origin);
-	returnShape.setRotation(rotationDegree);
+	returnShape.setOrigin(sf::Vector2f(rectSize.x / 2, rectSize.y / 2));
 	returnShape.setFillColor(fillColor);
 	returnShape.setOutlineColor(outlineColor);
 	returnShape.setOutlineThickness(outlineThickness);
@@ -79,9 +78,9 @@ sf::RectangleShape ShapeComponent::constructRectangle() {
 
 /* Default constructor for TransformComponent */
 Transform::Transform() {
-	size = sf::Vector2f(1.0f,1.0f);
+	size = sf::Vector2f(1.0f, 1.0f);
 	position = sf::Vector2f(500.0f, 250.0f);
-	origin = sf::Vector2f(25.0f, 25.0f);
+	origin = sf::Vector2f(0.0f, 0.0f);
 
 	rotationDegree = 0;
 }
@@ -121,7 +120,7 @@ GameObject::GameObject() {
 }
 
 /* GameObject constructor and destructor */
-GameObject::GameObject(Collider *col) {
+GameObject::GameObject(Collider* col) {
 	id = 0;
 	ShapeComponent shape;
 	collider = col;
@@ -140,15 +139,15 @@ Collider* GameObject::getCollider() {
 
 /*
 	@ return ShapeComponent
-	Returns the shapeComponent 
+	Returns the shapeComponent
 */
-ShapeComponent &GameObject::getShapeComponent() {
+ShapeComponent& GameObject::getShapeComponent() {
 	return shape;
 }
 
 /*
 	@ return Transform
-	Returns the Transform 
+	Returns the Transform
 */
 Transform& GameObject::getTransform() {
 	return transform;
@@ -166,8 +165,8 @@ void Game::init() {
 	window->setFramerateLimit(120);
 
 	cameraTransform = new Transform();
-	cameraTransform->setPosition(sf::Vector2f(0,0));
-	cameraTransform->setSize(sf::Vector2f(window->getSize().x,window->getSize().y));
+	cameraTransform->setPosition(sf::Vector2f(0, 0));
+	cameraTransform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
 }
 
 /*
@@ -183,7 +182,7 @@ Game::Game() {
 	Creates a default GameObject.
 */
 objectRef Game::makeObjectRef() {
-	GameObject *newObject = new GameObject();
+	GameObject* newObject = new GameObject();
 	newObject->id = nextId;
 	nextId++;
 	gameObjects.push_back(newObject);
@@ -194,7 +193,7 @@ objectRef Game::makeObjectRef() {
 	@ return GameObject
 	Creates a default GameObject.
 */
-GameObject *Game::makeObject() {
+GameObject* Game::makeObject() {
 	GameObject* newObject = new GameObject();
 	newObject->id = nextId;
 	nextId++;
@@ -206,7 +205,7 @@ GameObject *Game::makeObject() {
 	@ return GameObject
 	Creates a default GameObject.
 */
-GameObject* Game::makeObject(Collider *col) {
+GameObject* Game::makeObject(Collider* col) {
 	GameObject* newObject = new GameObject(col);
 	newObject->id = nextId;
 	nextId++;
@@ -214,13 +213,13 @@ GameObject* Game::makeObject(Collider *col) {
 	return newObject;
 }
 
-/* 
+/*
 	@ return GameObject - gameobject with specified objectId
 	Iterates through the gameObject list to find and return the object with the given id.
 	If the object isn't found, it returns an object with an id of 0. This id should be checked before use.
 */
-GameObject *Game::getObject(objectRef targId) {
-	for (GameObject *obj : gameObjects) {
+GameObject* Game::getObject(objectRef targId) {
+	for (GameObject* obj : gameObjects) {
 		if (obj->id == targId) {
 			return obj;
 		}
@@ -277,6 +276,13 @@ void Game::update() {
 		f1Held = false;
 	}
 
+	if (controller.getKeyDown(KEYCODEESC) && !escHeld) {
+		paused = !paused;
+		escHeld = true;
+	} else if (!controller.getKeyDown(KEYCODEESC)) {
+		escHeld = false;
+	}
+
 	/* Update camera
 	if (vmath::getMagnitude(vmath::subtractVectors(playerPosition, vmath::divideVector(cameraTransform->getSize(), 2))) > 1000) {
 		cameraTransform->setPosition(vmath::subtractVectors(playerPosition, vmath::divideVector(cameraTransform->getSize(), 2)));
@@ -293,7 +299,7 @@ void Game::update() {
 */
 void Game::render() {
 	// Clear the screen with this color as argument
-	window->clear(sf::Color(100,100,100,255));
+	window->clear(sf::Color(100, 100, 100, 255));
 
 	std::vector<sf::CircleShape> circleColliders; // Put these into one later
 	std::vector<sf::RectangleShape> rectColliders;
@@ -302,7 +308,7 @@ void Game::render() {
 	std::vector<sf::RectangleShape> rectObjects;
 
 	// Render objects by drawing directly on window
-	for (GameObject *obj : gameObjects) {
+	for (GameObject* obj : gameObjects) {
 		/* Draw the object */
 		Transform transform = obj->getTransform();
 		ShapeComponent shapeComp = obj->getShapeComponent();
@@ -311,13 +317,15 @@ void Game::render() {
 			sf::RectangleShape drawShape = shapeComp.constructRectangle();
 			if (obj->getLayer() == 0) {
 				drawShape.move(transform.getPosition().x, transform.getPosition().y);
-			} else {
+			}
+			else {
 				drawShape.move(transform.getPosition().x - cameraTransform->getPosition().x, transform.getPosition().y - cameraTransform->getPosition().y);
 			}
 			drawShape.scale(transform.getSize());
 			drawShape.rotate(transform.rotationDegree);
 			rectObjects.push_back(drawShape);
-		} else if (shapeComp.shapeType == shape_type::circle) {
+		}
+		else if (shapeComp.shapeType == shape_type::circle) {
 			sf::CircleShape drawShape = shapeComp.constructCircle();
 			if (obj->getLayer() == 0) {
 				drawShape.move(transform.getPosition().x, transform.getPosition().y);
@@ -329,7 +337,7 @@ void Game::render() {
 			drawShape.rotate(transform.rotationDegree);
 			circleObjects.push_back(drawShape);
 		}
-		
+
 		/* Add the collider shapes to the buffer */
 		Collider* col = obj->getCollider();
 		if (showColliders && col != nullptr) {
@@ -373,16 +381,16 @@ void Game::drawCollider(Rect r) {
 	drawShape.setOutlineThickness(10.0f);
 	drawShape.setOutlineColor(sf::Color(0, 255, 0));
 	drawShape.setOrigin(sf::Vector2f(0, 0));
-	drawShape.setPosition(r.left,r.top);
+	drawShape.setPosition(r.left, r.top);
 	drawShape.setSize(sf::Vector2f(r.right - r.left, r.bottom - r.top));
 	window->draw(drawShape);
 }
 
 void Game::drawCollider(float r, sf::Vector2f c) {
 	sf::CircleShape drawShape;
-	drawShape.setFillColor(sf::Color(0,0,0,0));
+	drawShape.setFillColor(sf::Color(0, 0, 0, 0));
 	drawShape.setOutlineThickness(10.0f);
-	drawShape.setOutlineColor(sf::Color(0,255,0));
+	drawShape.setOutlineColor(sf::Color(0, 255, 0));
 	drawShape.setPosition(c);
 	drawShape.setRadius(r);
 	window->draw(drawShape);
