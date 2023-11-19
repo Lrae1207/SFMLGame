@@ -5,7 +5,6 @@
 
 void PlayerControl::updatePlayer() {
 	// For some reason this isn't setting the position
-	playerObj->getTransform().setPosition(this->position);
 	sf::Vector2f v = playerObj->getTransform().getPosition();
 
 	/* Update Collider */
@@ -47,9 +46,6 @@ PlayerControl::PlayerControl(Game *engine, Rocket* r) {
 }
 
 void PlayerControl::init() {
-	inputForce = 0.5f;
-	drag = 0.1;
-	position = sf::Vector2f(80.0f, 200.0f);
 	playerObj = game->makeObject(static_cast<Collider*>(new RectCollider(0, 0, 100, 100)));
 	playerObj->getTransform().position = sf::Vector2f(100,100);
 	playerObj->getShapeComponent().rectSize = sf::Vector2f(100, 250);
@@ -72,20 +68,6 @@ void PlayerControl::update() {
 		onDDown();
 	}
 
-	// Crouching
-	if (game->controller.getKeyDown(KEYCODELCNTRL) || game->controller.getKeyDown(KEYCODERCNTRL)) {
-		playerObj->getTransform().setSize(sf::Vector2f(1.0f, 0.5f));
-	} else {
-		// Sprinting
-		playerObj->getTransform().setSize(sf::Vector2f(1.0f, 1.0f));
-		if (game->controller.getKeyDown(KEYCODELSHIFT) || game->controller.getKeyDown(KEYCODERSHIFT)) {
-			inputForce = 1.50f;
-		}
-		else {
-			inputForce = 0.5f;
-		}
-	}
-
 	// Scale velocity down by a factor of drag
 	updatePlayer();
 }
@@ -94,6 +76,61 @@ Rocket::Rocket(Game *engine) {
 	game = engine;
 }
 
-Menu::Menu(Game* engine) {
+PauseMenu::PauseMenu(Game* engine) {
 	game = engine;
+	background = game->makeObject();
+
+	sf::Vector2f windowSize = game->getWindowSize();
+	background->setActive(false);
+	background->getShapeComponent().fillColor = C_DGRAY1;
+
+	float margin = 10.0f;
+	background->getTransform().setPosition(sf::Vector2f(0,0));
+	background->getShapeComponent().rectSize = sf::Vector2f(windowSize.x,windowSize.y);// this right here
+
+	if (pausedFont.loadFromFile("Raleway-Regular.ttf")) {
+		std::cout << "Loaded \"Raleway-Regular.ttf\"\n";
+	} else {
+		std::cout << "Failed load \"Raleway-Regular.ttf\"\n";
+	}
+
+	pausedText.setCharacterSize(24);
+	pausedText.setString("PAUSED");
+	pausedText.setFont(pausedFont);
+
+	sf::Vector2f pos = vmath::divideVector(windowSize, 2);
+	pos.x = pos.x - (pausedText.getLocalBounds().width / 2);
+	pos.y = 50;
+	pausedText.setPosition(pos);
+}
+
+void PauseMenu::update() {
+	if (game->isPaused()) { // Show menu objects
+		background->setActive(true);
+		game->drawText(pausedText);
+;	} else {
+		background->setActive(false);
+	}
+}
+
+Planet::Planet(Game* engine, float r, float m, sf::Vector2f pos) {
+	game = engine;
+	radius = r;
+	mass = m;
+
+	col = new RadiusCollider(r, pos.x, pos.y);
+	col->isCircle = true;
+
+	obj = game->makeObject(col);
+	obj->getShapeComponent().shapeType = shape_type::circle;
+	obj->getShapeComponent().circleRadius = r;
+
+	obj->getTransform().setPosition(pos);
+}
+
+void Planet::update() {
+	/* Update collider */
+
+	col->setCenter(obj->getTransform().position);
+	col->setRadius(radius);
 }

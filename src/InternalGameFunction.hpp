@@ -1,5 +1,6 @@
 #pragma once
 #include "Game.hpp" // Engine
+#include "Physics.hpp"
 
 /*
 	This file contains definitions for the function of the game utilizing the engine. Keep each individual function inside of a class to make management and organization easier.
@@ -7,12 +8,16 @@
 
 /* UI objects */
 
-class Menu {
+class PauseMenu {
 private:
 	Game* game;
-	GameObject background;
+	GameObject* background;
+
+	sf::Font pausedFont;
+	sf::Text pausedText;
 public:
-	Menu(Game* engine);
+	PauseMenu(Game* engine);
+	void update();
 };
 
 /* 2D game objects */
@@ -29,12 +34,17 @@ private:
 	std::vector<Piece*> pieces = {};
 
 	bool isThrust = true;
+
+	// Physics
+	sf::Vector2f velocity = {0.0f,0.0f};
+	float totalThrust;
+	float totalWeight;
 public:
 	Rocket(Game* engine);
 	void toggleThrust() { isThrust = !isThrust; }
 };
 
-/* Controls the gameobject of the character */
+/* Interface for controlling the rocket */
 class PlayerControl {
 private:
 	// Engine references
@@ -44,21 +54,8 @@ private:
 	// Player-reference variables
 	GameObject* playerObj;
 
-	// Player information variables
-	sf::Vector2f position;
-	sf::Vector2f velocity;
-
 	// Input
 	bool spaceHeld = false;
-
-	// Force exerted by input keys
-	float inputForce;
-
-	// Drag factor
-	float drag;
-
-	// Represents the velocity created by user input
-	sf::Vector2f inputMovement;
 
 	// Control response functions
 	void updatePlayer();
@@ -77,10 +74,26 @@ public:
 
 class Planet {
 private:
+	GameObject* obj;
+	RadiusCollider* col;
+
 	Game* game;
+	sf::Color landColor;
+	sf::Color atmosphereColor;
 
 	bool isFixed = true;
-	sf::Vector2f position;
+
+	float radius;
+	float mass;
 public:
-	Planet(Game *engine);
+	Planet(Game *engine,float r, float m, sf::Vector2f pos);
+	void setFixed(bool fixed) { isFixed = fixed; }
+
+	void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent().fillColor = color; }
+	sf::Color getLandColor() { return landColor; }
+
+	void setAtmosphereColor(sf::Color color) { atmosphereColor = color; }
+	sf::Color getAtmosphereColor() { return atmosphereColor; }
+
+	void update();
 };

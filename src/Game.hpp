@@ -17,6 +17,8 @@ namespace vmath {
 	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
 	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
 	sf::Vector2f divideVector(sf::Vector2f v1, float i);
+
+	sf::Vector2f utof(sf::Vector2u v1);
 }
 
 /* Game Management */
@@ -74,7 +76,6 @@ public:
 	shape_type shapeType;
 
 	sf::Vector2f rectSize;
-	sf::Vector2f positionOffset;
 	sf::Vector2f origin;
 	float rotationDegree;
 	float circleRadius;
@@ -149,6 +150,7 @@ private:
 	Transform transform;
 	ShapeComponent shape;
 	int layer = 1; // Layer 0 = UI
+	bool isActive = true;
 public:
 	objectRef id;
 
@@ -159,6 +161,10 @@ public:
 
 	int getLayer() { return layer; }
 	void setLayer(int l) { layer = l; }
+
+	bool getActive() { return isActive; }
+	void setActive(bool active) { isActive = active; }
+
 	Collider* getCollider();
 	ShapeComponent& getShapeComponent();
 	Transform& getTransform();
@@ -185,6 +191,9 @@ private:
 	// Collisions
 	CollisionManager* collisionManager;
 
+	// Text
+	std::vector<sf::Text> textBuffer = {};
+
 	// Gameobjects
 	objectRef nextId = 1;
 	std::vector<GameObject*> gameObjects;
@@ -203,10 +212,12 @@ public:
 	// Accessor
 	const bool windowActive() const;
 	bool isPaused() { return paused; }
+	sf::Vector2f getWindowSize() { return vmath::utof(window->getSize()); }
 
 	// Game update and render functions
 	void update();
 	void render();
+	void drawText(sf::Text text);
 	void drawCollider(Rect r);
 	void drawCollider(float r, sf::Vector2f c);
 

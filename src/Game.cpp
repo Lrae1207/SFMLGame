@@ -31,6 +31,10 @@ sf::Vector2f vmath::divideVector(sf::Vector2f v1, float i) {
 	return sf::Vector2f(v1.x / i, v1.y / i);
 }
 
+sf::Vector2f vmath::utof(sf::Vector2u v1) { 
+	return sf::Vector2f(v1.x, v1.y); 
+};
+
 /* Default constructor and destructor for ShapeComponent */
 ShapeComponent::ShapeComponent() {
 	fillColor = sf::Color(255, 0, 255, 255);
@@ -41,7 +45,6 @@ ShapeComponent::ShapeComponent() {
 	circleRadius = 1.0f;
 
 	rectSize = sf::Vector2f(50.0f, 50.0f);
-	positionOffset = sf::Vector2f(0.0f, 00.0f);
 	origin = sf::Vector2f(0.0f, 0.0f);
 }
 
@@ -53,10 +56,9 @@ ShapeComponent::~ShapeComponent() {
 	Constructs a drawable RectangleShape from the data held in this class
 */
 sf::CircleShape ShapeComponent::constructCircle() {
-	sf::CircleShape returnShape = sf::CircleShape(circleRadius);
-	returnShape.setPosition(positionOffset);
-	returnShape.setOrigin(sf::Vector2f(rectSize.x/2,rectSize.y/2));
+	sf::CircleShape returnShape = sf::CircleShape(circleRadius, circleRadius/10+10);
 	returnShape.setFillColor(fillColor);
+	returnShape.setOrigin(sf::Vector2f(circleRadius,circleRadius));
 	returnShape.setOutlineColor(outlineColor);
 	returnShape.setOutlineThickness(outlineThickness);
 	return returnShape;
@@ -68,7 +70,6 @@ sf::CircleShape ShapeComponent::constructCircle() {
 sf::RectangleShape ShapeComponent::constructRectangle() {
 	sf::RectangleShape returnShape;
 	returnShape.setSize(rectSize);
-	returnShape.setPosition(positionOffset);
 	returnShape.setOrigin(sf::Vector2f(rectSize.x / 2, rectSize.y / 2));
 	returnShape.setFillColor(fillColor);
 	returnShape.setOutlineColor(outlineColor);
@@ -79,7 +80,7 @@ sf::RectangleShape ShapeComponent::constructRectangle() {
 /* Default constructor for TransformComponent */
 Transform::Transform() {
 	size = sf::Vector2f(1.0f, 1.0f);
-	position = sf::Vector2f(500.0f, 250.0f);
+	position = sf::Vector2f(0.0f, 0.0f);
 	origin = sf::Vector2f(0.0f, 0.0f);
 
 	rotationDegree = 0;
@@ -313,7 +314,11 @@ void Game::render() {
 		Transform transform = obj->getTransform();
 		ShapeComponent shapeComp = obj->getShapeComponent();
 
-		if (shapeComp.shapeType == shape_type::rectangle) {
+		if (!obj->getActive()) { // Skip inactive objects
+			continue;
+		}
+
+		if (shapeComp.shapeType == shape_type::rectangle) { // Create and set attributes of rectangle shape
 			sf::RectangleShape drawShape = shapeComp.constructRectangle();
 			if (obj->getLayer() == 0) {
 				drawShape.move(transform.getPosition().x, transform.getPosition().y);
@@ -321,11 +326,10 @@ void Game::render() {
 			else {
 				drawShape.move(transform.getPosition().x - cameraTransform->getPosition().x, transform.getPosition().y - cameraTransform->getPosition().y);
 			}
-			drawShape.scale(transform.getSize());
+			//drawShape.scale(transform.getSize());
 			drawShape.rotate(transform.rotationDegree);
 			rectObjects.push_back(drawShape);
-		}
-		else if (shapeComp.shapeType == shape_type::circle) {
+		} else if (shapeComp.shapeType == shape_type::circle) { // Create and set attributes of circle shape
 			sf::CircleShape drawShape = shapeComp.constructCircle();
 			if (obj->getLayer() == 0) {
 				drawShape.move(transform.getPosition().x, transform.getPosition().y);
@@ -341,15 +345,17 @@ void Game::render() {
 		/* Add the collider shapes to the buffer */
 		Collider* col = obj->getCollider();
 		if (showColliders && col != nullptr) {
-			if (col->isCircle) {
+			if (col->isCircle) { // Create and set attributes of circle collider
 				RadiusCollider* collider = static_cast<RadiusCollider*>(col);
 				sf::CircleShape drawShape;
+				drawShape.setOrigin(sf::Vector2f(collider->getRadius(), collider->getRadius()));
+				drawShape.setPosition(sf::Vector2f(collider->getCenter().x - cameraTransform->getPosition().x, collider->getCenter().y - cameraTransform->getPosition().y));
+				drawShape.setRadius(collider->getRadius());
 				drawShape.setFillColor(sf::Color(0, 0, 0, 0));
 				drawShape.setOutlineColor(sf::Color(0, 255, 0));
 				drawShape.setOutlineThickness(3.0f);
 				circleColliders.push_back(drawShape);
-			}
-			else {
+			} else { // Create and set attributes of  rectangle collider
 				RectCollider* collider = static_cast<RectCollider*>(col);
 				sf::RectangleShape drawShape;
 				Rect colliderShape = collider->getCollider();
@@ -361,18 +367,27 @@ void Game::render() {
 				rectColliders.push_back(drawShape);
 			}
 		}
-
-		/* Draw the objects */
-		for (sf::CircleShape shape : circleObjects) { window->draw(shape); }
-		for (sf::RectangleShape shape : rectObjects) { window->draw(shape); }
-
-		/* Draw the colliders */
-		for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
-		for (sf::RectangleShape shape : rectColliders) { window->draw(shape); }
 	}
+
+	/* Draw the objects */
+	for (sf::CircleShape shape : circleObjects) { window->draw(shape); }
+	for (sf::RectangleShape shape : rectObjects) { window->draw(shape); }
+
+	/* Draw the colliders */
+	for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
+	for (sf::RectangleShape shape : rectColliders) { window->draw(shape); }
+
+	/* Draw text */
+	for (sf::Text text : textBuffer) { window->draw(text); }
 
 	// Write changes to window
 	window->display();
+
+	textBuffer = {};
+}
+
+void Game::drawText(sf::Text text){
+	textBuffer.push_back(text);
 }
 
 void Game::drawCollider(Rect r) {
@@ -456,7 +471,7 @@ Collider* CollisionManager::makeCollider(Rect rect) {
 	return (static_cast<Collider*>(col));
 }
 
-//https://stackoverflow.com/questions/401847/circle-rectangle-collision-detection-intersection
+// https://stackoverflow.com/questions/401847/circle-rectangle-collision-detection-intersection
 // Returns a collision between a circle and a rectangle
 bool CollisionManager::isCollision(RadiusCollider* circle, RectCollider* rect) {
 	float cRadius = circle->getRadius();
@@ -496,7 +511,7 @@ void CollisionManager::handleCollisions() {
 	// Needs to be optimized; basic O(n^2) algorithm
 	for (Collider* c1 : colliders) {
 		for (Collider* c2 : colliders) {
-			if (c1 == c2) { break; };
+			if (c1 == c2) { continue; };
 			bool collisionOccurred = false;
 			if (c1->isCircle && c2->isCircle) { // Both colliders are circles
 				RadiusCollider* col1 = static_cast<RadiusCollider*>(c1);

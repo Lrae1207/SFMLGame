@@ -23,8 +23,9 @@ void Controller::handleKeyUp(const sf::Keyboard::Key key) {
 void Controller::handleKeyDown(const sf::Keyboard::Key key) {
 	// If the key hasn't been added yet
 	if (keyDownMap.find(key) == keyDownMap.end()) {
-		keyDownMap.insert({key,true});
-	} else {
+		keyDownMap.insert({ key,true });
+	}
+	else {
 		keyDownMap[key] = true;
 	}
 }

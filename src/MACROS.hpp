@@ -68,6 +68,7 @@
 #define KEYCODESPACE sf::Keyboard::Space
 
 /* Color macros */
+#define C_TRANS sf::Color(0,0,0,0)
 #define C_BLACK sf::Color(0,0,0)
 #define C_DGRAY1 sf::Color(50,50,50)
 #define C_DGRAY2 sf::Color(100,100,100)
