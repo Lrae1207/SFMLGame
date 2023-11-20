@@ -3,8 +3,55 @@
 
 /* PlayerControl definitions */
 
-void PlayerControl::updatePlayer() {
-	// For some reason this isn't setting the position
+void PlayerControl::onADown() {
+
+}
+
+void PlayerControl::onDDown() {
+}
+
+void PlayerControl::onSpaceDown() {
+	if (!spaceHeld) {
+		rocket->toggleThrust();
+	}
+}
+
+PlayerControl::PlayerControl(Game *engine, Rocket* r) {
+	game = engine;
+	rocket = r;
+	init();
+}
+
+void PlayerControl::init() {
+	
+}
+
+
+void PlayerControl::update() {
+	// Handle inputs
+
+	if (game->controller.getKeyDown(KEYCODESPACE)) {
+		onSpaceDown();
+	} else {
+		spaceHeld = false;
+	}
+	if (game->controller.getKeyDown(KEYCODEA) || game->controller.getKeyDown(KEYCODELEFTARROW)) {
+		onADown();
+	}
+	if (game->controller.getKeyDown(KEYCODED) || game->controller.getKeyDown(KEYCODERIGHTARROW)) {
+		onDDown();
+	}
+}
+
+Rocket::Rocket(Game *engine) {
+	game = engine;
+	playerObj = game->makeObject(static_cast<Collider*>(new RectCollider(0, 0, 100, 100)));
+	playerObj->getTransform().position = sf::Vector2f(100, 100);
+	playerObj->getShapeComponent().rectSize = sf::Vector2f(100, 250);
+	playerObj->getShapeComponent().fillColor = C_LGRAY1;
+}
+
+void Rocket::update() {
 	sf::Vector2f v = playerObj->getTransform().getPosition();
 
 	/* Update Collider */
@@ -25,68 +72,21 @@ void PlayerControl::updatePlayer() {
 	game->playerPosition = playerObj->getTransform().getPosition();
 }
 
-void PlayerControl::onADown() {
-
-}
-
-void PlayerControl::onDDown() {
-	
-}
-
-void PlayerControl::onSpaceDown() {
-	if (!spaceHeld) {
-		rocket->toggleThrust();
-	}
-}
-
-PlayerControl::PlayerControl(Game *engine, Rocket* r) {
-	game = engine;
-	rocket = r;
-	init();
-}
-
-void PlayerControl::init() {
-	playerObj = game->makeObject(static_cast<Collider*>(new RectCollider(0, 0, 100, 100)));
-	playerObj->getTransform().position = sf::Vector2f(100,100);
-	playerObj->getShapeComponent().rectSize = sf::Vector2f(100, 250);
-	playerObj->getShapeComponent().fillColor = C_LGRAY1;
-}
-
-
-void PlayerControl::update() {
-	// Handle inputs
-
-	if (game->controller.getKeyDown(KEYCODESPACE)) {
-		onSpaceDown();
-	} else {
-		spaceHeld = false;
-	}
-	if (game->controller.getKeyDown(KEYCODEA) || game->controller.getKeyDown(KEYCODELEFTARROW)) {
-		onADown();
-	}
-	if (game->controller.getKeyDown(KEYCODED) || game->controller.getKeyDown(KEYCODERIGHTARROW)) {
-		onDDown();
-	}
-
-	// Scale velocity down by a factor of drag
-	updatePlayer();
-}
-
-Rocket::Rocket(Game *engine) {
-	game = engine;
-}
-
 PauseMenu::PauseMenu(Game* engine) {
 	game = engine;
 	background = game->makeObject();
 
 	sf::Vector2f windowSize = game->getWindowSize();
 	background->setActive(false);
-	background->getShapeComponent().fillColor = C_DGRAY1;
+	background->getShapeComponent().fillColor = changeAlpha(C_DGRAY1,200);
 
-	float margin = 10.0f;
-	background->getTransform().setPosition(sf::Vector2f(0,0));
-	background->getShapeComponent().rectSize = sf::Vector2f(windowSize.x,windowSize.y);// this right here
+	sf::Vector2f margin;
+	margin.x = 450.0f;
+	margin.y = 90.0f;
+
+	background->setLayer(0);
+	background->getTransform().setPosition(sf::Vector2f(windowSize.x/2,windowSize.y/2));
+	background->getShapeComponent().rectSize = sf::Vector2f(windowSize.x-margin.x,windowSize.y-margin.y);// this right here
 
 	if (pausedFont.loadFromFile("Raleway-Regular.ttf")) {
 		std::cout << "Loaded \"Raleway-Regular.ttf\"\n";

@@ -31,6 +31,9 @@ class Rocket {
 private:
 	Game* game;
 
+	// Player-reference variables
+	GameObject* playerObj;
+
 	std::vector<Piece*> pieces = {};
 
 	bool isThrust = true;
@@ -42,6 +45,7 @@ private:
 public:
 	Rocket(Game* engine);
 	void toggleThrust() { isThrust = !isThrust; }
+	void update();
 };
 
 /* Interface for controlling the rocket */
@@ -51,14 +55,10 @@ private:
 	Rocket* rocket;
 	Game* game;
 
-	// Player-reference variables
-	GameObject* playerObj;
-
 	// Input
 	bool spaceHeld = false;
 
 	// Control response functions
-	void updatePlayer();
 	void onSpaceDown();
 	void onADown();
 	void onDDown();

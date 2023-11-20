@@ -5,6 +5,8 @@
 #include <vector> // Dynamic Arrays
 #include <iostream> // Debugging output
 
+sf::Color changeAlpha(sf::Color color, int alpha);
+
 /* Structs for data storage */
 struct Rect {
 	float top, left, bottom, right;

@@ -305,6 +305,8 @@ void Game::render() {
 	std::vector<sf::CircleShape> circleColliders; // Put these into one later
 	std::vector<sf::RectangleShape> rectColliders;
 
+	std::vector<sf::RectangleShape> uiObjects;
+
 	std::vector<sf::CircleShape> circleObjects;
 	std::vector<sf::RectangleShape> rectObjects;
 
@@ -322,13 +324,14 @@ void Game::render() {
 			sf::RectangleShape drawShape = shapeComp.constructRectangle();
 			if (obj->getLayer() == 0) {
 				drawShape.move(transform.getPosition().x, transform.getPosition().y);
+				drawShape.rotate(transform.rotationDegree);
+				uiObjects.push_back(drawShape);
 			}
 			else {
 				drawShape.move(transform.getPosition().x - cameraTransform->getPosition().x, transform.getPosition().y - cameraTransform->getPosition().y);
+				drawShape.rotate(transform.rotationDegree);
+				rectObjects.push_back(drawShape);
 			}
-			//drawShape.scale(transform.getSize());
-			drawShape.rotate(transform.rotationDegree);
-			rectObjects.push_back(drawShape);
 		} else if (shapeComp.shapeType == shape_type::circle) { // Create and set attributes of circle shape
 			sf::CircleShape drawShape = shapeComp.constructCircle();
 			if (obj->getLayer() == 0) {
@@ -376,6 +379,9 @@ void Game::render() {
 	/* Draw the colliders */
 	for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
 	for (sf::RectangleShape shape : rectColliders) { window->draw(shape); }
+
+	/* Draw UI */
+	for (sf::RectangleShape shape : uiObjects) { window->draw(shape); }
 
 	/* Draw text */
 	for (sf::Text text : textBuffer) { window->draw(text); }
@@ -538,4 +544,8 @@ void CollisionManager::handleCollisions() {
 			c2->isOverlapped = collisionOccurred;
 		}
 	}
+}
+
+sf::Color changeAlpha(sf::Color color, int alpha) {
+	return sf::Color(color.r,color.g,color.b,alpha);
 }
