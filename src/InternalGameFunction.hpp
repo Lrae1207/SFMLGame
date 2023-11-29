@@ -22,30 +22,55 @@ public:
 
 /* 2D game objects */
 
-class Piece {
-private:
-public:
+struct PartPrefab {
+	float thrust;
+	float weight;
+	float durability;
+	GameObject object;
 };
+
+// These two classes reference eachother
+class Rocket;
+class Part;
 
 class Rocket {
 private:
+	long long dTime = 0;
 	Game* game;
 
-	// Player-reference variables
-	GameObject* playerObj;
+	std::vector<Part*> parts = {};
 
-	std::vector<Piece*> pieces = {};
-
-	bool isThrust = true;
+	bool isThrust = false;
 
 	// Physics
-	sf::Vector2f velocity = {0.0f,0.0f};
+	sf::Vector2f netForce = sf::Vector2f(0.0f, 0.0f);
 	float totalThrust;
 	float totalWeight;
+
+	GameObject* parentObject;
+
 public:
 	Rocket(Game* engine);
-	void toggleThrust() { isThrust = !isThrust; }
+	void toggleThrust() { isThrust = !isThrust; game->debugLog("rocketThrust : " + boolToString(isThrust), LOG_CYAN); }
 	void update();
+	Part* makePart(float thrust, float weight, GameObject* obj);
+	Part* instantiatePart(PartPrefab prefab);
+	void registerPart(Part* p);
+};
+
+class Part {
+public:
+	float thrust;
+	sf::Vector2f thrustDirection;
+	sf::Vector2f offset; // from parent/rocket
+
+	float weight;
+	float durability = 100;
+
+	GameObject* object;
+
+	Rocket* rocket;
+	Part(Rocket* r) { rocket = r; }
 };
 
 /* Interface for controlling the rocket */
@@ -89,7 +114,7 @@ public:
 	Planet(Game *engine,float r, float m, sf::Vector2f pos);
 	void setFixed(bool fixed) { isFixed = fixed; }
 
-	void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent().fillColor = color; }
+	void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent()->fillColor = color; }
 	sf::Color getLandColor() { return landColor; }
 
 	void setAtmosphereColor(sf::Color color) { atmosphereColor = color; }

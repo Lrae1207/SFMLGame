@@ -4,7 +4,6 @@
 // Internal function
 #include "InternalGameFunction.hpp"
 
-
 int main() {
 	Game game;
 
@@ -12,16 +11,26 @@ int main() {
 
 	/* UI */
 	PauseMenu pauseMenu(&game);
+	game.debugLog("Loaded GameObject(pauseMenu)", LOG_GREEN);
 
 	/* 2D Objects */
 	Planet earth(&game,9700,1000,sf::Vector2f(400.0f,10000.0f));
-
 	earth.setLandColor(sf::Color(0,100,0));
-
-	Planet moon(&game, 10, 1000, sf::Vector2f(400.0f, 400.0f));
-
+	game.debugLog("Loaded GameObject(earth)", LOG_GREEN);
 	Rocket rocket(&game);
+	game.debugLog("Loaded GameObject(rocket)", LOG_GREEN);
 	PlayerControl playerController(&game,&rocket);
+	game.debugLog("Loaded GameObject(playerController)", LOG_GREEN);
+
+	// Initiation code
+	RectCollider* collider = new RectCollider(0,0,100,100);
+	collider->isCircle = false;
+
+	GameObject *g = new GameObject(static_cast<Collider*>(collider));
+
+	Part* p = rocket.makePart(1,100,g);
+	p->thrustDirection = sf::Vector2f(0,-1);
+	
 	// While the game is active
 	while (game.windowActive()) {
 		// Update and render game
@@ -30,8 +39,8 @@ int main() {
 
 		// Call all internal game function object update functions
 		playerController.update();
+		rocket.update();
 		earth.update();
-		moon.update();
 		pauseMenu.update();
 	}
 

@@ -4,7 +4,10 @@
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
 #include <iostream> // Debugging output
+#include <chrono> // Timestamps
 
+long long getTimens();
+std::string boolToString(bool b);
 sf::Color changeAlpha(sf::Color color, int alpha);
 
 /* Structs for data storage */
@@ -16,8 +19,11 @@ struct Rect {
 namespace vmath {
 	sf::Vector2f normalizeVector(sf::Vector2f vector);
 	float getMagnitude(sf::Vector2f vector);
+
 	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
 	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
+	
+	sf::Vector2f multiplyVector(sf::Vector2f v1, float i);
 	sf::Vector2f divideVector(sf::Vector2f v1, float i);
 
 	sf::Vector2f utof(sf::Vector2u v1);
@@ -152,7 +158,7 @@ private:
 	Transform transform;
 	ShapeComponent shape;
 	int layer = 1; // Layer 0 = UI
-	bool isActive = true;
+	bool isVisible = true;
 public:
 	objectRef id;
 
@@ -164,12 +170,13 @@ public:
 	int getLayer() { return layer; }
 	void setLayer(int l) { layer = l; }
 
-	bool getActive() { return isActive; }
-	void setActive(bool active) { isActive = active; }
+	bool getVisibility() { return isVisible; }
+	void setVisibility(bool v) { isVisible = v; }
 
 	Collider* getCollider();
-	ShapeComponent& getShapeComponent();
-	Transform& getTransform();
+	void updateCollider();
+	ShapeComponent* getShapeComponent();
+	Transform* getTransform();
 };
 
 /*
@@ -177,6 +184,11 @@ public:
 */
 class Game {
 private:
+	long long currentTime;
+	long long lastTime;
+	long long startTime;
+	float timeScale;
+
 	// Private variables
 	sf::Event event;
 	sf::VideoMode videoMode;
@@ -215,6 +227,9 @@ public:
 	const bool windowActive() const;
 	bool isPaused() { return paused; }
 	sf::Vector2f getWindowSize() { return vmath::utof(window->getSize()); }
+	float getTimescale() { return timeScale; }
+	long long getElapsedTime() { return getTimens() - startTime; }
+	long long getDeltaTime() { return currentTime - lastTime; }
 
 	// Game update and render functions
 	void update();
@@ -222,12 +237,15 @@ public:
 	void drawText(sf::Text text);
 	void drawCollider(Rect r);
 	void drawCollider(float r, sf::Vector2f c);
+	void debugLog(std::string str, std::string colorStr);
 
 	// Object functions
 	objectRef makeObjectRef();
 	GameObject* makeObject();
 	GameObject* makeObject(Collider* col);
 	GameObject* getObject(objectRef targId);
+	void registerObject(GameObject *obj);
+	void removeObject(GameObject *obj);
 
 	// Controller
 	Controller controller;

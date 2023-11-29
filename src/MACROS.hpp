@@ -75,3 +75,13 @@
 #define C_LGRAY1 sf::Color(150,150,150)
 #define C_LGRAY2 sf::Color(200,200,200)
 #define C_WHITE sf::Color(255,255,255)
+
+/* Text output colors */
+#define LOG_BLACK     "\x1b[30m"
+#define LOG_RED       "\x1b[31m" // Failure
+#define LOG_GREEN     "\x1b[32m" // Success
+#define LOG_YELLOW    "\x1b[33m" // Warning
+#define LOG_BLUE      "\x1b[34m"
+#define LOG_MAGENTA   "\x1b[35m"
+#define LOG_CYAN      "\x1b[36m" // Internal variables
+#define LOG_RESET     "\x1b[37m"

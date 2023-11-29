@@ -1,5 +1,18 @@
 #include "Game.hpp"
 
+/* Get the timestamp in nanoseconds */
+long long getTimens() {
+	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+}
+
+std::string boolToString(bool b) {
+	if (b) {
+		return "true";
+	} else {
+		return "false";
+	}
+}
+
 //https://www.youtube.com/watch?v=PXnhYBG0AEA
 
 //  Returns a normalized vector (x and y divided by magnitude)
@@ -25,6 +38,10 @@ sf::Vector2f vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
 /* Returns v1 - v2 */
 sf::Vector2f vmath::subtractVectors(sf::Vector2f v1, sf::Vector2f v2) {
 	return sf::Vector2f(v1.x - v2.x, v1.y - v2.y);
+}
+
+sf::Vector2f vmath::multiplyVector(sf::Vector2f v1, float i) {
+	return sf::Vector2f(v1.x * i, v1.y * i);
 }
 
 sf::Vector2f vmath::divideVector(sf::Vector2f v1, float i) {
@@ -123,7 +140,8 @@ GameObject::GameObject() {
 /* GameObject constructor and destructor */
 GameObject::GameObject(Collider* col) {
 	id = 0;
-	ShapeComponent shape;
+	transform = Transform();
+	shape = ShapeComponent();
 	collider = col;
 }
 
@@ -138,20 +156,38 @@ Collider* GameObject::getCollider() {
 	return collider;
 }
 
+void GameObject::updateCollider() {
+	if (collider->isCircle) {
+
+	} else {
+		RectCollider* c = static_cast<RectCollider*>(collider);
+		Rect r;
+
+		r.left = transform.getPosition().x - shape.rectSize.x/2;
+		r.top = transform.getPosition().y - shape.rectSize.y/2;
+		r.right = transform.getPosition().x + shape.rectSize.x/2;
+		r.bottom = transform.getPosition().y + shape.rectSize.y/2;
+		c->setCollider(r);
+
+		collider = static_cast<Collider*>(c);
+		collider->isCircle = false;
+	}
+}
+
 /*
 	@ return ShapeComponent
 	Returns the shapeComponent
 */
-ShapeComponent& GameObject::getShapeComponent() {
-	return shape;
+ShapeComponent* GameObject::getShapeComponent() {
+	return &shape;
 }
 
 /*
 	@ return Transform
 	Returns the Transform
 */
-Transform& GameObject::getTransform() {
-	return transform;
+Transform* GameObject::getTransform() {
+	return &transform;
 }
 
 /*
@@ -159,6 +195,9 @@ Transform& GameObject::getTransform() {
 	Creates the window
 */
 void Game::init() {
+	startTime = getTimens();
+	timeScale = 1;
+
 	window = nullptr;
 	videoMode = sf::VideoMode(800, 600);
 
@@ -168,6 +207,7 @@ void Game::init() {
 	cameraTransform = new Transform();
 	cameraTransform->setPosition(sf::Vector2f(0, 0));
 	cameraTransform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
+	debugLog("Instantiated Engine(game)", LOG_GREEN);
 }
 
 /*
@@ -175,6 +215,7 @@ void Game::init() {
 	Anything that happens initially goes here
 */
 Game::Game() {
+	debugLog("Loaded Engine(game)", LOG_GREEN);
 	init();
 }
 
@@ -230,6 +271,20 @@ GameObject* Game::getObject(objectRef targId) {
 	return newObject;
 }
 
+void Game::registerObject(GameObject* obj) {
+	obj->id = nextId++;
+	gameObjects.push_back(obj);
+}
+
+void Game::removeObject(GameObject* obj) {
+	for (int i = 0; i < gameObjects.size(); ++i) {
+		if (gameObjects[i] == obj) {
+			gameObjects.erase(gameObjects.begin() + i);
+			break;
+		}
+	}
+}
+
 
 // Destructor
 Game::~Game() {
@@ -252,6 +307,9 @@ const bool Game::windowActive() const {
 	- Handles events (such as keypresses)
 */
 void Game::update() {
+	lastTime = currentTime;
+	currentTime = getTimens();
+
 	/* Event polling */
 	while (window->pollEvent(event)) {
 		switch (event.type) {
@@ -273,6 +331,7 @@ void Game::update() {
 	if (controller.getKeyDown(KEYCODEF1) && !f1Held) {
 		showColliders = !showColliders;
 		f1Held = true;
+		debugLog("debugMode : " + boolToString(showColliders), LOG_CYAN);
 	} else if (!controller.getKeyDown(KEYCODEF1)) {
 		f1Held = false;
 	}
@@ -280,6 +339,7 @@ void Game::update() {
 	if (controller.getKeyDown(KEYCODEESC) && !escHeld) {
 		paused = !paused;
 		escHeld = true;
+		debugLog("paused : " + boolToString(paused), LOG_CYAN);
 	} else if (!controller.getKeyDown(KEYCODEESC)) {
 		escHeld = false;
 	}
@@ -313,10 +373,10 @@ void Game::render() {
 	// Render objects by drawing directly on window
 	for (GameObject* obj : gameObjects) {
 		/* Draw the object */
-		Transform transform = obj->getTransform();
-		ShapeComponent shapeComp = obj->getShapeComponent();
+		Transform transform = *obj->getTransform();
+		ShapeComponent shapeComp = *obj->getShapeComponent();
 
-		if (!obj->getActive()) { // Skip inactive objects
+		if (!obj->getVisibility()) { // Skip inactive objects
 			continue;
 		}
 
@@ -374,11 +434,13 @@ void Game::render() {
 
 	/* Draw the objects */
 	for (sf::CircleShape shape : circleObjects) { window->draw(shape); }
-	for (sf::RectangleShape shape : rectObjects) { window->draw(shape); }
+	for (sf::RectangleShape shape : rectObjects) { 
+		window->draw(shape); }
 
 	/* Draw the colliders */
 	for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
-	for (sf::RectangleShape shape : rectColliders) { window->draw(shape); }
+	for (sf::RectangleShape shape : rectColliders) {
+		window->draw(shape); }
 
 	/* Draw UI */
 	for (sf::RectangleShape shape : uiObjects) { window->draw(shape); }
@@ -415,6 +477,10 @@ void Game::drawCollider(float r, sf::Vector2f c) {
 	drawShape.setPosition(c);
 	drawShape.setRadius(r);
 	window->draw(drawShape);
+}
+
+void Game::debugLog(std::string str, std::string colorStr) {
+	std::cout << getElapsedTime() << "|" << colorStr << str << LOG_RESET <<  "\n";
 }
 
 
