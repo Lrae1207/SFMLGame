@@ -13,8 +13,6 @@ std::string boolToString(bool b) {
 	}
 }
 
-//https://www.youtube.com/watch?v=PXnhYBG0AEA
-
 //  Returns a normalized vector (x and y divided by magnitude)
 sf::Vector2f vmath::normalizeVector(sf::Vector2f vector) {
 	float magnitude = sqrtf(vector.x * vector.x + vector.y * vector.y);
@@ -31,8 +29,19 @@ float vmath::getMagnitude(sf::Vector2f vector) {
 	return sqrtf(vector.x * vector.x + vector.y * vector.y);;
 }
 
+float vmath::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
+	return getMagnitude(subtractVectors(v1, v2));
+}
+
 sf::Vector2f vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
 	return sf::Vector2f(v1.x + v2.x, v1.y + v2.y);
+}
+
+sf::Vector2f vmath::rotateByDegrees(sf::Vector2f vector, float degrees) {
+	sf::Vector2f returnVector;
+	returnVector.x = vector.x * cosf(degrees) - vector.y * sinf(degrees);
+	returnVector.y = vector.x * sinf(degrees) + vector.y * cosf(degrees);
+	return returnVector;
 }
 
 /* Returns v1 - v2 */
@@ -175,7 +184,7 @@ void GameObject::updateCollider() {
 }
 
 /*
-	@ return ShapeComponent
+	return ShapeComponent
 	Returns the shapeComponent
 */
 ShapeComponent* GameObject::getShapeComponent() {
@@ -183,7 +192,7 @@ ShapeComponent* GameObject::getShapeComponent() {
 }
 
 /*
-	@ return Transform
+	return Transform
 	Returns the Transform
 */
 Transform* GameObject::getTransform() {
@@ -191,12 +200,12 @@ Transform* GameObject::getTransform() {
 }
 
 /*
-	@ return void
+	return void
 	Creates the window
 */
 void Game::init() {
 	startTime = getTimens();
-	timeScale = 1;
+	timeScale = 0.5;
 
 	window = nullptr;
 	videoMode = sf::VideoMode(800, 600);
@@ -204,9 +213,9 @@ void Game::init() {
 	window = new sf::RenderWindow(videoMode, "A game", sf::Style::Titlebar | sf::Style::Close);
 	window->setFramerateLimit(120);
 
-	cameraTransform = new Transform();
-	cameraTransform->setPosition(sf::Vector2f(0, 0));
-	cameraTransform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
+	camera.transform = new Transform();
+	camera.transform->setPosition(sf::Vector2f(0, 0));
+	camera.transform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
 	debugLog("Instantiated Engine(game)", LOG_GREEN);
 }
 
@@ -220,7 +229,7 @@ Game::Game() {
 }
 
 /*
-	@ return objectRef(unsigned int) - id of new gameobject
+	return objectRef(unsigned int) - id of new gameobject
 	Creates a default GameObject.
 */
 objectRef Game::makeObjectRef() {
@@ -232,7 +241,7 @@ objectRef Game::makeObjectRef() {
 }
 
 /*
-	@ return GameObject
+	return GameObject
 	Creates a default GameObject.
 */
 GameObject* Game::makeObject() {
@@ -244,7 +253,7 @@ GameObject* Game::makeObject() {
 }
 
 /*
-	@ return GameObject
+	return GameObject
 	Creates a default GameObject.
 */
 GameObject* Game::makeObject(Collider* col) {
@@ -256,7 +265,7 @@ GameObject* Game::makeObject(Collider* col) {
 }
 
 /*
-	@ return GameObject - gameobject with specified objectId
+	return GameObject - gameobject with specified objectId
 	Iterates through the gameObject list to find and return the object with the given id.
 	If the object isn't found, it returns an object with an id of 0. This id should be checked before use.
 */
@@ -327,6 +336,7 @@ void Game::update() {
 			break;
 		}
 	}
+
 	/* Input handling */
 	if (controller.getKeyDown(KEYCODEF1) && !f1Held) {
 		showColliders = !showColliders;
@@ -344,11 +354,9 @@ void Game::update() {
 		escHeld = false;
 	}
 
-	/* Update camera
-	if (vmath::getMagnitude(vmath::subtractVectors(playerPosition, vmath::divideVector(cameraTransform->getSize(), 2))) > 1000) {
-		cameraTransform->setPosition(vmath::subtractVectors(playerPosition, vmath::divideVector(cameraTransform->getSize(), 2)));
-	}
-	*/
+	// Update camera
+	sf::Vector2f offset = vmath::divideVector(getWindowSize(),2);
+	camera.transform->setPosition(vmath::subtractVectors(camera.focus->getTransform()->position,offset));
 }
 
 /*
@@ -360,7 +368,7 @@ void Game::update() {
 */
 void Game::render() {
 	// Clear the screen with this color as argument
-	window->clear(sf::Color(100, 100, 100, 255));
+	window->clear(sf::Color(100, 150, 255, 255));
 
 	std::vector<sf::CircleShape> circleColliders; // Put these into one later
 	std::vector<sf::RectangleShape> rectColliders;
@@ -369,6 +377,8 @@ void Game::render() {
 
 	std::vector<sf::CircleShape> circleObjects;
 	std::vector<sf::RectangleShape> rectObjects;
+
+	Transform* cameraTransform = camera.transform;
 
 	// Render objects by drawing directly on window
 	for (GameObject* obj : gameObjects) {
@@ -411,6 +421,7 @@ void Game::render() {
 			if (col->isCircle) { // Create and set attributes of circle collider
 				RadiusCollider* collider = static_cast<RadiusCollider*>(col);
 				sf::CircleShape drawShape;
+				drawShape.setPointCount(collider->getPoints());
 				drawShape.setOrigin(sf::Vector2f(collider->getRadius(), collider->getRadius()));
 				drawShape.setPosition(sf::Vector2f(collider->getCenter().x - cameraTransform->getPosition().x, collider->getCenter().y - cameraTransform->getPosition().y));
 				drawShape.setRadius(collider->getRadius());

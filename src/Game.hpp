@@ -5,6 +5,7 @@
 #include <vector> // Dynamic Arrays
 #include <iostream> // Debugging output
 #include <chrono> // Timestamps
+#include <cmath> // For vector math
 
 long long getTimens();
 std::string boolToString(bool b);
@@ -19,6 +20,10 @@ struct Rect {
 namespace vmath {
 	sf::Vector2f normalizeVector(sf::Vector2f vector);
 	float getMagnitude(sf::Vector2f vector);
+
+	float getDistance(sf::Vector2f v1, sf::Vector2f v2);
+	
+	sf::Vector2f rotateByDegrees(sf::Vector2f vector, float degrees);
 
 	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
 	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
@@ -53,6 +58,7 @@ public:
 class RadiusCollider : public Collider {
 private:
 	float radius;
+	int points = 30;
 	sf::Vector2f center;
 public:
 	RadiusCollider(float r, float x, float y);
@@ -60,6 +66,8 @@ public:
 	void setRadius(float r);
 	sf::Vector2f getCenter();
 	void setCenter(sf::Vector2f c);
+	int getPoints() { return points; }
+	void setPoints(int p) { points = p; }
 };
 
 class CollisionManager {
@@ -179,6 +187,11 @@ public:
 	Transform* getTransform();
 };
 
+struct Camera {
+	Transform* transform;
+	GameObject* focus;
+};
+
 /*
 	Game Engine
 */
@@ -193,6 +206,8 @@ private:
 	sf::Event event;
 	sf::VideoMode videoMode;
 
+	void* manager;
+
 	// Keypress handling
 	bool showColliders = false;
 	bool f1Held = false;
@@ -200,7 +215,7 @@ private:
 	bool escHeld = false;
 
 	// Camera data
-	Transform* cameraTransform;
+	Camera camera;
 
 	// Collisions
 	CollisionManager* collisionManager;
@@ -217,19 +232,26 @@ private:
 public:
 	sf::RenderWindow* window;
 
-	sf::Vector2f playerPosition;
-
 	// Constructors
 	Game();
 	virtual ~Game();
 
-	// Accessor
+	// Accessors
 	const bool windowActive() const;
 	bool isPaused() { return paused; }
 	sf::Vector2f getWindowSize() { return vmath::utof(window->getSize()); }
+
+	// Time Accessors
 	float getTimescale() { return timeScale; }
 	long long getElapsedTime() { return getTimens() - startTime; }
 	long long getDeltaTime() { return currentTime - lastTime; }
+
+	// Get and set
+	void* getManager() { return manager; };
+	void setManager(void* m) { manager = m; }
+
+	// Camera functions
+	void setCamFocus(GameObject* obj) { camera.focus = obj; }
 
 	// Game update and render functions
 	void update();
