@@ -39,6 +39,7 @@ sf::Vector2f vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
 
 sf::Vector2f vmath::rotateByDegrees(sf::Vector2f vector, float degrees) {
 	sf::Vector2f returnVector;
+	degrees *= phys::DEGTORAD;
 	returnVector.x = vector.x * cosf(degrees) - vector.y * sinf(degrees);
 	returnVector.y = vector.x * sinf(degrees) + vector.y * cosf(degrees);
 	return returnVector;
@@ -177,6 +178,7 @@ void GameObject::updateCollider() {
 		r.right = transform.getPosition().x + shape.rectSize.x/2;
 		r.bottom = transform.getPosition().y + shape.rectSize.y/2;
 		c->setCollider(r);
+		c->setRotation(transform.getRotation());
 
 		collider = static_cast<Collider*>(c);
 		collider->isCircle = false;
@@ -205,7 +207,7 @@ Transform* GameObject::getTransform() {
 */
 void Game::init() {
 	startTime = getTimens();
-	timeScale = 0.5;
+	timeScale = 1;
 
 	window = nullptr;
 	videoMode = sf::VideoMode(800, 600);
@@ -294,7 +296,6 @@ void Game::removeObject(GameObject* obj) {
 	}
 }
 
-
 // Destructor
 Game::~Game() {
 	delete window;
@@ -368,7 +369,7 @@ void Game::update() {
 */
 void Game::render() {
 	// Clear the screen with this color as argument
-	window->clear(sf::Color(100, 150, 255, 255));
+	window->clear(sf::Color(100*backgroundBrightness, 150*backgroundBrightness, 255*backgroundBrightness, 255));
 
 	std::vector<sf::CircleShape> circleColliders; // Put these into one later
 	std::vector<sf::RectangleShape> rectColliders;
@@ -433,8 +434,11 @@ void Game::render() {
 				RectCollider* collider = static_cast<RectCollider*>(col);
 				sf::RectangleShape drawShape;
 				Rect colliderShape = collider->getCollider();
-				drawShape.setPosition(sf::Vector2f(colliderShape.left - cameraTransform->getPosition().x, colliderShape.top - cameraTransform->getPosition().y));
-				drawShape.setSize(sf::Vector2f(colliderShape.right - colliderShape.left, colliderShape.bottom - colliderShape.top));
+				sf::Vector2f size = sf::Vector2f(colliderShape.right - colliderShape.left, colliderShape.bottom - colliderShape.top);
+				drawShape.setPosition(sf::Vector2f(colliderShape.left - cameraTransform->getPosition().x + size.x/2, colliderShape.top - cameraTransform->getPosition().y + size.y/2));
+				drawShape.setSize(sf::Vector2f(size.x,size.y));
+				drawShape.setOrigin(size.x/2,size.y/2);
+				drawShape.setRotation(collider->getRotation());
 				drawShape.setFillColor(sf::Color(0, 0, 0, 0));
 				drawShape.setOutlineColor(sf::Color(0, 255, 0));
 				drawShape.setOutlineThickness(3.0f);
@@ -459,10 +463,34 @@ void Game::render() {
 	/* Draw text */
 	for (sf::Text text : textBuffer) { window->draw(text); }
 
+	/* Draw debug lines */
+	if (showColliders) {
+		for (const Line& line : lineBuffer) {
+			sf::Vector2f start = line.start;
+			sf::Vector2f end = line.end;
+			start.x -= line.thickness;
+			start.y -= line.thickness;
+			end.x += line.thickness;
+			end.y += line.thickness;
+			sf::Vector2f screenPos = sf::Vector2f(vmath::getDistance(start, end), line.magnitude);
+			sf::RectangleShape drawLine(screenPos);
+			drawLine.setFillColor(line.color);
+			drawLine.setPosition(vmath::subtractVectors(line.start, cameraTransform->getPosition()));
+			screenPos = vmath::subtractVectors(line.end, line.start);
+			drawLine.rotate(phys::RADTODEG * atan2f(screenPos.y, screenPos.x) - 90.0f);
+			window->draw(drawLine);
+		}
+	}
+
 	// Write changes to window
 	window->display();
 
 	textBuffer = {};
+	lineBuffer = {};
+}
+
+void Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
+	lineBuffer.push_back(Line(start,end,sf::Color::Green));
 }
 
 void Game::drawText(sf::Text text){
@@ -625,4 +653,10 @@ void CollisionManager::handleCollisions() {
 
 sf::Color changeAlpha(sf::Color color, int alpha) {
 	return sf::Color(color.r,color.g,color.b,alpha);
+}
+
+Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
+	start = begin;
+	end = stop;
+	this->color = color;
 }

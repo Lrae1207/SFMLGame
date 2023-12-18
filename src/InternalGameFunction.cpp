@@ -70,10 +70,7 @@ Rocket::Rocket(Game *engine) {
 void Rocket::update() {
 	if (game->isPaused()) { return; }
 	dTime += game->getDeltaTime();
-	if (dTime > 2000000000) { // 2 second(s)
-		game->debugLog("rocket::transform::position : (" + std::to_string(parentObject->getTransform()->getPosition().x) + "," + std::to_string(parentObject->getTransform()->getPosition().y) + ")", LOG_YELLOW);
-		dTime = 0;
-	}
+
 	/* Update Colliders */
 	totalThrust = 0;
 	totalWeight = 0;
@@ -95,6 +92,7 @@ void Rocket::update() {
 		t->setPosition(vmath::addVectors(rocketTransform.getPosition(),p->offset));
 		t->setOrigin(rocketTransform.position);
 		t->setRotation(rocketTransform.getRotation());
+		p->object->updateCollider();
 
 		p->object->updateCollider();
 
@@ -106,8 +104,6 @@ void Rocket::update() {
 
 	// Rotate newForce
 	newForce = vmath::rotateByDegrees(newForce, parentObject->getTransform()->getRotation());
-
-	netForce = vmath::addVectors(netForce, newForce);
 	/*
 			F * t
 		v = -----
@@ -115,7 +111,7 @@ void Rocket::update() {
 	*/
 	if (isThrust) {
 		totalWeight += 0.0001; // Prevents division by 0
-		sf::Vector2f v = vmath::multiplyVector(netForce, thrustScaler * game->getTimescale() / totalWeight);
+		sf::Vector2f v = vmath::multiplyVector(newForce, thrustScaler * game->getTimescale() / totalWeight);
 		velocity = vmath::addVectors(velocity,v);
 	}
 
@@ -128,13 +124,30 @@ void Rocket::update() {
 	sf::Vector2f gravityDirection = vmath::normalizeVector(vmath::subtractVectors(planetPos,rocketPos));
 	float gravityMagnitude = phys::calculateGravityAccel(rocketPos.x, rocketPos.y,planetPos.x,planetPos.y,closestPlanet->getMass());
 
-	gravityDirection = vmath::multiplyVector(gravityDirection,gravityMagnitude);
+	game->debugLine(rocketPos,vmath::addVectors(gravityDirection,rocketPos));
+
+	gravityDirection = vmath::multiplyVector(gravityDirection,gravityMagnitude*game->getTimescale());
 	velocity = vmath::addVectors(velocity,gravityDirection);
 
-	float drag = 1 - (1 / (phys::distance2D(planetPos.x,planetPos.y,rocketPos.x,rocketPos.y)+0.000000001));
+	float distFromPlanet = phys::distance2D(planetPos.x, planetPos.y, rocketPos.x, rocketPos.y);
+
+	float drag = pow(1 - (1 / (distFromPlanet+0.000000001)),3);
 	velocity = vmath::multiplyVector(velocity,drag);
 
+	if (distFromPlanet < closestPlanet->getRadius()) {
+		game->setBackgroundBrightness(1.0f);
+	} else {
+		game->setBackgroundBrightness(powf(1.00001, -5*(distFromPlanet-closestPlanet->getRadius())));
+	}
+
 	parentObject->getTransform()->addToPosition(velocity);
+
+	if (dTime > 500000000) { // 2 second(s)
+		game->debugLog("rocket::transform::position : (" + std::to_string(parentObject->getTransform()->getPosition().x) + "," + std::to_string(parentObject->getTransform()->getPosition().y) + ")", LOG_YELLOW);
+		game->debugLog("rocket::velocity : (" + std::to_string(velocity.x) + "," + std::to_string(velocity.y) + ")", LOG_YELLOW);
+		game->debugLog("rocket::altitude: " + std::to_string(distFromPlanet-closestPlanet->getRadius()), LOG_YELLOW);
+		dTime = 0;
+	}
 }
 
 /* Create and register a new part with the given fields */
@@ -186,10 +199,10 @@ PauseMenu::PauseMenu(Game* engine) {
 	background->getTransform()->setPosition(sf::Vector2f(windowSize.x/2,windowSize.y/2));
 	background->getShapeComponent()->rectSize = sf::Vector2f(windowSize.x-margin.x,windowSize.y-margin.y);// this right here
 
-	if (pausedFont.loadFromFile("fonts/Raleway-Regular.ttf")) {
-		game->debugLog("Loaded \"fonts/Raleway-Regular.ttf\"\n", LOG_GREEN);
+	if (pausedFont.loadFromFile("Raleway-Regular.ttf")) {
+		game->debugLog("Loaded \"Raleway-Regular.ttf\"\n", LOG_GREEN);
 	} else {
-		game->debugLog("Failed load \"fonts/Raleway-Regular.ttf\"\n", LOG_RED);
+		game->debugLog("Failed load \"Raleway-Regular.ttf\"\n", LOG_RED);
 	}
 
 	pausedText.setCharacterSize(24);

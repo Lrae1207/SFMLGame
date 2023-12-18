@@ -1,6 +1,5 @@
 #pragma once
 #include "Game.hpp" // Engine
-#include "Physics.hpp"
 #include <limits>
 
 /*
@@ -53,7 +52,7 @@ private:
 
 	GameObject* parentObject; // Parent of all rocket parts
 public:
-	float thrustScaler = powf(10,-1);
+	float thrustScaler = powf(10,0);
 
 	void applyControlRotation(float force);
 
@@ -129,6 +128,7 @@ public:
 	sf::Color getAtmosphereColor() { return atmosphereColor; }
 	GameObject* getObject() { return obj; }
 	float getMass() { return mass; }
+	float getRadius() { return radius; }
 
 	void update();
 };

@@ -14,7 +14,7 @@ int main() {
 	game.debugLog("Loaded GameObject(pauseMenu)", LOG_GREEN);
 
 	/* 2D Objects */
-	Planet earth(&game,99700,100,sf::Vector2f(400.0f,100000.0f));
+	Planet earth(&game,49700,5000,sf::Vector2f(400.0f,50000.0f));
 	earth.setLandColor(sf::Color(0,100,0));
 	game.debugLog("Loaded GameObject(earth)", LOG_GREEN);
 	GameManager manager(&game);
@@ -30,7 +30,7 @@ int main() {
 	RectCollider* collider = new RectCollider(0,0,100,100);
 	collider->isCircle = false;
 	GameObject *g = new GameObject(static_cast<Collider*>(collider));
-	Part* p = rocket.makePart(1,1000,g);
+	Part* p = rocket.makePart(9,100,g);
 	ShapeComponent* shape = p->object->getShapeComponent();
 	shape->fillColor = sf::Color(100,100,100);
 	shape->rectSize = sf::Vector2f(50,100);

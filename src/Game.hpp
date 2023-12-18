@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Physics.hpp"
 #include "MACROS.hpp" // Makes key names easier
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
@@ -14,6 +15,16 @@ sf::Color changeAlpha(sf::Color color, int alpha);
 /* Structs for data storage */
 struct Rect {
 	float top, left, bottom, right;
+};
+
+class Line {
+public:
+	sf::Vector2f start;
+	sf::Vector2f end;
+	sf::Color color;
+	float thickness = 1.0f;
+	float magnitude = 35.0f;
+	Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color);
 };
 
 // Vector mathmatical functions
@@ -49,10 +60,13 @@ public:
 class RectCollider : public Collider {
 private:
 	Rect colliderShape;
+	float rotation = 0.0f;
 public:
 	RectCollider(float top, float left, float bottom, float right);
 	Rect getCollider();
 	void setCollider(Rect r);
+	float getRotation() { return rotation; };
+	void setRotation(float r) { rotation = r; }
 };
 
 class RadiusCollider : public Collider {
@@ -206,6 +220,8 @@ private:
 	sf::Event event;
 	sf::VideoMode videoMode;
 
+	float backgroundBrightness = 1.0f;
+
 	void* manager;
 
 	// Keypress handling
@@ -220,8 +236,9 @@ private:
 	// Collisions
 	CollisionManager* collisionManager;
 
-	// Text
+	// Buffers
 	std::vector<sf::Text> textBuffer = {};
+	std::vector<Line> lineBuffer = {};
 
 	// Gameobjects
 	objectRef nextId = 1;
@@ -249,6 +266,7 @@ public:
 	// Get and set
 	void* getManager() { return manager; };
 	void setManager(void* m) { manager = m; }
+	void setBackgroundBrightness(float brightness) { backgroundBrightness = brightness; }
 
 	// Camera functions
 	void setCamFocus(GameObject* obj) { camera.focus = obj; }
@@ -260,6 +278,7 @@ public:
 	void drawCollider(Rect r);
 	void drawCollider(float r, sf::Vector2f c);
 	void debugLog(std::string str, std::string colorStr);
+	void debugLine(sf::Vector2f start, sf::Vector2f end);
 
 	// Object functions
 	objectRef makeObjectRef();
