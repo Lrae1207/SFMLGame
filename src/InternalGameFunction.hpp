@@ -6,6 +6,34 @@
 	This file contains definitions for the function of the game utilizing the engine. Keep each individual function inside of a class to make management and organization easier.
 */
 
+// These classes reference eachother
+class Rocket;
+class Part;
+class GameManager;
+
+/* Managers */
+class RocketParticleManager {
+private:
+	Game* game;
+	
+	Part* parentPart;
+
+	float lifespan;
+	float lastRelease = 0.0f;
+	float particlesPerSecond = 0.0f;
+	
+	sf::Vector2f launchDirection = sf::Vector2f(0.0f,1.0f);
+	sf::Vector2f startPosition = sf::Vector2f(0.0f,0.0f);
+	
+	float launchSpeed;
+	float particleDrag = 0.9f;
+public:
+	std::vector<Particle*> particles = {};
+	RocketParticleManager(Game* engine, float maxDuration, float perSecond, float speed, float drag, Part *relativeTo);
+	void setStartPosition(sf::Vector2f startPos) { startPosition = startPos; }
+	void update();
+};
+
 /* UI objects */
 
 class PauseMenu {
@@ -28,11 +56,6 @@ struct PartPrefab {
 	float durability;
 	GameObject object;
 };
-
-// These classes reference eachother
-class Rocket;
-class Part;
-class GameManager;
 
 class Rocket {
 private:
@@ -66,17 +89,19 @@ public:
 
 class Part {
 public:
-	float thrust;
+	RocketParticleManager* particleManager = nullptr;
+	float thrust = 0;
 	sf::Vector2f thrustDirection;
 	sf::Vector2f offset; // from parent/rocket
 
-	float weight;
+	float weight = 1;
 	float durability = 100;
 
-	GameObject* object;
+	GameObject* object = nullptr;
 
-	Rocket* rocket;
+	Rocket* rocket = nullptr;
 	Part(Rocket* r) { rocket = r; }
+	Part(Rocket* r, float t) { rocket = r; thrust = t; }
 };
 
 /* Interface for controlling the rocket */

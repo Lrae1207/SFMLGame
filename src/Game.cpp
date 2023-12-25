@@ -29,6 +29,15 @@ float vmath::getMagnitude(sf::Vector2f vector) {
 	return sqrtf(vector.x * vector.x + vector.y * vector.y);;
 }
 
+float vmath::dotProduct(sf::Vector2f a, sf::Vector2f b) {
+	return a.x * b.x + a.y * b.y;
+}
+
+// Return a's distance along b of a projected on b
+float vmath::projectVector(sf::Vector2f a, sf::Vector2f b) {
+	return dotProduct(a,normalizeVector(b));
+}
+
 float vmath::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
 	return getMagnitude(subtractVectors(v1, v2));
 }
@@ -291,7 +300,21 @@ void Game::removeObject(GameObject* obj) {
 	for (int i = 0; i < gameObjects.size(); ++i) {
 		if (gameObjects[i] == obj) {
 			gameObjects.erase(gameObjects.begin() + i);
-			break;
+			return;
+		}
+	}
+}
+
+void Game::registerParticle(Particle* p) {
+	p->id = nextId++;
+	particleBuffer.push_back(p);
+}
+
+void Game::removeParticle(Particle* p) {
+	for (int i = 0; i < particleBuffer.size(); ++i) {
+		if (particleBuffer[i] == p) {
+			particleBuffer.erase(particleBuffer.begin() + i);
+			return;
 		}
 	}
 }
@@ -450,7 +473,14 @@ void Game::render() {
 	/* Draw the objects */
 	for (sf::CircleShape shape : circleObjects) { window->draw(shape); }
 	for (sf::RectangleShape shape : rectObjects) { 
-		window->draw(shape); }
+		window->draw(shape); 
+	}
+
+	/* Draw Particles */
+	for (Particle* p : particleBuffer) {
+		sf::RectangleShape particle = p->getShape()->constructRectangle();
+		window->draw(particle);
+	}
 
 	/* Draw the colliders */
 	for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
@@ -463,7 +493,7 @@ void Game::render() {
 	/* Draw text */
 	for (sf::Text text : textBuffer) { window->draw(text); }
 
-	/* Draw debug lines */
+	/* Draw lines */
 	if (showColliders) {
 		for (const Line& line : lineBuffer) {
 			sf::Vector2f start = line.start;
@@ -521,7 +551,6 @@ void Game::drawCollider(float r, sf::Vector2f c) {
 void Game::debugLog(std::string str, std::string colorStr) {
 	std::cout << getElapsedTime() << "|" << colorStr << str << LOG_RESET <<  "\n";
 }
-
 
 RectCollider::RectCollider(float top, float left, float right, float bottom) {
 	Rect col;
@@ -659,4 +688,30 @@ Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
 	start = begin;
 	end = stop;
 	this->color = color;
+}
+
+Particle::Particle(Game* engine, sf::Vector2f v) {
+	transform = new Transform();
+	shape = new ShapeComponent();
+	game = engine;
+	velocity = v;
+}
+
+void Particle::update() {
+	lifeTime += game->getDeltaTime();
+
+	velocity = vmath::multiplyVector(velocity, drag);
+	transform->addToPosition(velocity);
+}
+
+void Particle::startRendering() {
+	game->registerParticle(this);
+}
+
+void Particle::stopRendering() {
+	game->removeParticle(this);
+}
+
+void Particle::deleteParticle() {
+	delete this;
 }

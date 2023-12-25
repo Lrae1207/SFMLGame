@@ -38,11 +38,13 @@ namespace vmath {
 
 	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
 	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
+	float dotProduct(sf::Vector2f a, sf::Vector2f b);
 	
 	sf::Vector2f multiplyVector(sf::Vector2f v1, float i);
 	sf::Vector2f divideVector(sf::Vector2f v1, float i);
 
 	sf::Vector2f utof(sf::Vector2u v1);
+	float projectVector(sf::Vector2f a, sf::Vector2f b);
 }
 
 /* Game Management */
@@ -55,6 +57,20 @@ public:
 	bool isCircle = false;
 	bool isOverlapped = false;
 	bool isRigid = false;
+};
+
+class PolygonCollider : Collider {
+private:
+	bool isCircle;
+	float rotation = 0.0f;
+	std::vector<sf::Vector2f> polygon = {};
+public:
+	PolygonCollider();
+	std::vector<sf::Vector2f> getPolygon() { return polygon; }
+	void setPolygon(std::vector<sf::Vector2f> p) { polygon = p; }
+	bool shapeIsCircle() { return isCircle; }
+	float getRotation() { return rotation; };
+	void setRotation(float r) { rotation = r; }
 };
 
 class RectCollider : public Collider {
@@ -206,6 +222,8 @@ struct Camera {
 	GameObject* focus;
 };
 
+class Particle;
+
 /*
 	Game Engine
 */
@@ -239,6 +257,7 @@ private:
 	// Buffers
 	std::vector<sf::Text> textBuffer = {};
 	std::vector<Line> lineBuffer = {};
+	std::vector<Particle*> particleBuffer = {};
 
 	// Gameobjects
 	objectRef nextId = 1;
@@ -287,7 +306,33 @@ public:
 	GameObject* getObject(objectRef targId);
 	void registerObject(GameObject *obj);
 	void removeObject(GameObject *obj);
+	void registerParticle(Particle *p);
+	void removeParticle(Particle* p);
 
 	// Controller
 	Controller controller;
+};
+
+class Particle {
+private:
+	Transform* transform;
+	ShapeComponent* shape;
+	Game* game;
+	sf::Vector2f velocity;
+	float drag;
+public:
+	float lifeTime = 0.0f;
+	int id = 0;
+	Particle(Game* engine, sf::Vector2f v);
+
+	void startRendering();
+	void stopRendering();
+	void deleteParticle();
+
+	Transform* getTransform() { return transform; }
+	ShapeComponent* getShape() { return shape; }
+
+	void setDrag(float d) { drag = d; }
+
+	void update();
 };

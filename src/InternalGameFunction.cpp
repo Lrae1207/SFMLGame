@@ -156,6 +156,11 @@ Part* Rocket::makePart(float thrust, float weight, GameObject* obj) {
 	newPart->thrust = thrust;
 	newPart->weight = weight;
 	newPart->object = obj;
+	if (thrust != 0) {
+		newPart->particleManager = new RocketParticleManager(game,1.0f,2.0f,1.0f,0.9f,newPartd);
+		newPart->particleManager->setStartPosition(newPart->offset);
+	}
+
 	parts.push_back(newPart);
 
 	game->registerObject(newPart->object);
@@ -276,4 +281,22 @@ Planet* GameManager::getNearestPlanet(sf::Vector2f position) {
 	}
 
 	return planets[nearestIndex];
+}
+
+RocketParticleManager::RocketParticleManager(Game* engine, float maxDuration, float perSecond, float speed, float drag, Part* relativeTo) {
+	lifespan = maxDuration;
+	particlesPerSecond = perSecond;
+	game = engine;
+	launchSpeed = speed;
+	particleDrag = drag;
+	parentPart = relativeTo;
+}
+
+void RocketParticleManager::update() {
+	for (Particle *particle : particles) {
+		particle->update();
+		if (particle->lifeTime > lifespan) {
+			particle->deleteParticle();
+		}
+	}
 }
