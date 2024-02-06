@@ -1,4 +1,8 @@
 #pragma once
+
+#ifndef INTERNALGAMEFUNCTION_HPP
+#define INTERNALGAMEFUNCTION_HPP
+
 #include "Game.hpp" // Engine
 #include <limits>
 
@@ -6,165 +10,167 @@
 	This file contains definitions for the function of the game utilizing the engine. Keep each individual function inside of a class to make management and organization easier.
 */
 
-// These classes reference eachother
-class Rocket;
-class Part;
-class GameManager;
+namespace intern {
+	// These classes reference eachother
+	class Rocket;
+	class Part;
+	class GameManager;
 
-/* Managers */
-class RocketParticleManager {
-private:
-	Game* game;
-	
-	Part* parentPart;
+	/* Managers */
+	class RocketParticleManager {
+	private:
+		engine::Game* game;
 
-	float lifespan;
-	float lastRelease = 0.0f;
-	float particlesPerSecond = 0.0f;
-	
-	sf::Vector2f launchDirection = sf::Vector2f(0.0f,1.0f);
-	sf::Vector2f startPosition = sf::Vector2f(0.0f,0.0f);
-	
-	float launchSpeed;
-	float particleDrag = 0.9f;
-public:
-	std::vector<Particle*> particles = {};
-	RocketParticleManager(Game* engine, float maxDuration, float perSecond, float speed, float drag, Part *relativeTo);
-	void setStartPosition(sf::Vector2f startPos) { startPosition = startPos; }
-	void update();
-};
+		Part* parentPart;
 
-/* UI objects */
+		float lifespan;
+		float lastRelease = 0.0f;
+		float particlesPerSecond = 0.0f;
 
-class PauseMenu {
-private:
-	Game* game;
-	GameObject* background;
+		sf::Vector2f launchDirection = sf::Vector2f(0.0f, 1.0f);
+		sf::Vector2f startPosition = sf::Vector2f(0.0f, 0.0f);
 
-	sf::Font pausedFont;
-	sf::Text pausedText;
-public:
-	PauseMenu(Game* engine);
-	void update();
-};
+		float launchSpeed;
+		float particleDrag = 0.9f;
+	public:
+		std::vector<engine::Particle*> particles = {};
+		RocketParticleManager(engine::Game* engine, float maxDuration, float perSecond, float speed, float drag, Part* relativeTo);
+		void setStartPosition(sf::Vector2f startPos) { startPosition = startPos; }
+		void update();
+	};
 
-/* 2D game objects */
+	/* UI objects */
 
-struct PartPrefab {
-	float thrust;
-	float weight;
-	float durability;
-	GameObject object;
-};
+	class PauseMenu {
+	private:
+		engine::Game* game;
+		engine::GameObject* background;
 
-class Rocket {
-private:
-	long long dTime = 0;
-	Game* game;
-	GameManager *manager;
+		sf::Font pausedFont;
+		sf::Text pausedText;
+	public:
+		PauseMenu(engine::Game* engine);
+		void update();
+	};
 
-	std::vector<Part*> parts = {};
+	/* 2D game objects */
 
-	bool isThrust = false;
+	struct PartPrefab {
+		float thrust;
+		float weight;
+		float durability;
+	};
 
-	// Physics
-	sf::Vector2f velocity = sf::Vector2f(0.0f, 0.0f);
-	sf::Vector2f netForce = sf::Vector2f(0.0f, 0.0f);
-	float totalThrust;
-	float totalWeight;
+	class Rocket {
+	private:
+		long long dTime = 0;
+		engine::Game* game;
+		GameManager* manager;
 
-	GameObject* parentObject; // Parent of all rocket parts
-public:
-	float thrustScaler = powf(10,0);
+		std::vector<Part*> parts = {};
 
-	void applyControlRotation(float force);
+		bool isThrust = false;
 
-	Rocket(Game* engine);
-	void toggleThrust() { isThrust = !isThrust; game->debugLog("rocketThrust : " + boolToString(isThrust), LOG_CYAN); }
-	void update();
-	Part* makePart(float thrust, float weight, GameObject* obj);
-	Part* instantiatePart(PartPrefab prefab);
-	void registerPart(Part* p);
-};
+		// Physics
+		sf::Vector2f velocity = sf::Vector2f(0.0f, 0.0f);
+		sf::Vector2f netForce = sf::Vector2f(0.0f, 0.0f);
+		float totalThrust;
+		float totalWeight;
 
-class Part {
-public:
-	RocketParticleManager* particleManager = nullptr;
-	float thrust = 0;
-	sf::Vector2f thrustDirection;
-	sf::Vector2f offset; // from parent/rocket
+		engine::GameObject* parentObject; // Parent of all rocket parts
+	public:
+		float thrustScaler = powf(10, 0);
 
-	float weight = 1;
-	float durability = 100;
+		void applyControlRotation(float force);
 
-	GameObject* object = nullptr;
+		Rocket(engine::Game* engine);
+		void toggleThrust() { isThrust = !isThrust; game->debugLog("rocketThrust : " + engine::boolToString(isThrust), LOG_CYAN); }
+		void update();
+		Part* makePart(float thrust, float weight, engine::GameObject* obj);
+		Part* instantiatePart(PartPrefab prefab);
+		void registerPart(Part* p);
+	};
 
-	Rocket* rocket = nullptr;
-	Part(Rocket* r) { rocket = r; }
-	Part(Rocket* r, float t) { rocket = r; thrust = t; }
-};
+	class Part {
+	public:
+		RocketParticleManager* particleManager = nullptr;
+		float thrust = 0;
+		sf::Vector2f thrustDirection;
+		sf::Vector2f offset; // from parent/rocket
 
-/* Interface for controlling the rocket */
-class PlayerControl {
-private:
-	// Engine references
-	Rocket* rocket;
-	Game* game;
+		float weight = 1;
+		float durability = 100;
 
-	// Input
-	bool spaceHeld = false;
+		engine::GameObject* object = nullptr;
 
-	// Control response functions
-	void onSpaceDown();
-	void onADown();
-	void onDDown();
+		Rocket* rocket = nullptr;
+		Part(Rocket* r) { rocket = r; }
+		Part(Rocket* r, float t) { rocket = r; thrust = t; }
+	};
 
-	// Private functions
-	void init();
-public:
-	// Constructors and Destructors
-	PlayerControl(Game* engine, Rocket* r);
+	/* Interface for controlling the rocket */
+	class PlayerControl {
+	private:
+		// Engine references
+		Rocket* rocket;
+		engine::Game* game;
 
-	void update();
-};
+		// Input
+		bool spaceHeld = false;
 
-class Planet {
-private:
-	GameObject* obj;
-	RadiusCollider* col;
+		// Control response functions
+		void onSpaceDown();
+		void onADown();
+		void onDDown();
 
-	Game* game;
-	sf::Color landColor;
-	sf::Color atmosphereColor;
+		// Private functions
+		void init();
+	public:
+		// Constructors and Destructors
+		PlayerControl(engine::Game* engine, Rocket* r);
 
-	bool isFixed = true;
+		void update();
+	};
 
-	float radius;
-	float mass;
-public:
-	float baseAirDensity;
+	class Planet {
+	private:
+		engine::GameObject* obj;
+		engine::PolygonCollider* col;
 
-	Planet(Game *engine,float r, float m, sf::Vector2f pos);
-	void setFixed(bool fixed) { isFixed = fixed; }
+		engine::Game* game;
+		sf::Color landColor;
+		sf::Color atmosphereColor;
 
-	void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent()->fillColor = color; }
-	sf::Color getLandColor() { return landColor; }
-	void setAtmosphereColor(sf::Color color) { atmosphereColor = color; }
-	sf::Color getAtmosphereColor() { return atmosphereColor; }
-	GameObject* getObject() { return obj; }
-	float getMass() { return mass; }
-	float getRadius() { return radius; }
+		bool isFixed = true;
 
-	void update();
-};
+		float radius;
+		float mass;
+	public:
+		float baseAirDensity;
 
-class GameManager {
-private:
-	Game* game;
-	std::vector<Planet*> planets;
-public:
-	GameManager(Game* engine);
+		Planet(engine::Game* engine, float r, float m, sf::Vector2f pos);
+		void setFixed(bool fixed) { isFixed = fixed; }
 
-	void registerPlanet(Planet* p);
-	Planet* getNearestPlanet(sf::Vector2f position);
-};
+		void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent()->fillColor = color; }
+		sf::Color getLandColor() { return landColor; }
+		void setAtmosphereColor(sf::Color color) { atmosphereColor = color; }
+		sf::Color getAtmosphereColor() { return atmosphereColor; }
+		engine::GameObject* getObject() { return obj; }
+		float getMass() { return mass; }
+		float getRadius() { return radius; }
+
+		void update();
+	};
+
+	class GameManager {
+	private:
+		engine::Game* game;
+		std::vector<Planet*> planets;
+	public:
+		GameManager(engine::Game* engine);
+
+		void registerPlanet(Planet* p);
+		Planet* getNearestPlanet(sf::Vector2f position);
+	};
+}
+#endif

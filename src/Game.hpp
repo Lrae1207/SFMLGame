@@ -1,6 +1,7 @@
 #pragma once
 
-#include "Physics.hpp"
+
+#ifndef GAME_HPP
 #include "MACROS.hpp" // Makes key names easier
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
@@ -8,331 +9,367 @@
 #include <chrono> // Timestamps
 #include <cmath> // For vector math
 
-long long getTimens();
-std::string boolToString(bool b);
-sf::Color changeAlpha(sf::Color color, int alpha);
+#ifndef PHYSICS_HPP
+#define PHYSICS_HPP
+#include <cmath>
 
-/* Structs for data storage */
-struct Rect {
-	float top, left, bottom, right;
-};
+namespace phys {
+	const double PI = 3.1415926535;
+	const double RADTODEG = 180.0f / PI;
+	const double DEGTORAD = PI / 180.0f;
+	const double GRAVITY_CONSTANT = 6.6743f * pow(10, -11);
+	const double GGRAM = pow(10, 9); // gigagram 10^9
 
-class Line {
-public:
-	sf::Vector2f start;
-	sf::Vector2f end;
-	sf::Color color;
-	float thickness = 1.0f;
-	float magnitude = 35.0f;
-	Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color);
-};
+	double distance2D(double x1, double y1, double x2, double y2);
 
-// Vector mathmatical functions
-namespace vmath {
-	sf::Vector2f normalizeVector(sf::Vector2f vector);
-	float getMagnitude(sf::Vector2f vector);
-
-	float getDistance(sf::Vector2f v1, sf::Vector2f v2);
-	
-	sf::Vector2f rotateByDegrees(sf::Vector2f vector, float degrees);
-
-	sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
-	sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
-	float dotProduct(sf::Vector2f a, sf::Vector2f b);
-	
-	sf::Vector2f multiplyVector(sf::Vector2f v1, float i);
-	sf::Vector2f divideVector(sf::Vector2f v1, float i);
-
-	sf::Vector2f utof(sf::Vector2u v1);
-	float projectVector(sf::Vector2f a, sf::Vector2f b);
+	// Calculate object 1s speed of acceleration towards object 2
+	double calculateGravityAccel(double x1, double y1, double x2, double y2, double mass2);
 }
+#endif
 
-/* Game Management */
+namespace engine {
+	class Game;
+	class GameObject;
 
-/* Collision */
+	class EngineComponent {
+	public:
+		int engine_index = 0;
+	};
 
-class Collider {
-public:
-	float layer = 0;
-	bool isCircle = false;
-	bool isOverlapped = false;
-	bool isRigid = false;
-};
+	/* Objects that can be drawn by the engine */
+	class Renderable {
+	public:
+		int layer = 1; // 0 is UI
+		int type_id; // type of object
+		/*
+			id:
+			0 - Line
+			1 - Particle
+			2 - RectCollider
+			3 - RadiusCollider
+			4 - PolygonCollider
+			5 - ShapeComponent
+			6 - Text
+		*/
+	};
 
-class PolygonCollider : Collider {
-private:
-	bool isCircle;
-	float rotation = 0.0f;
-	std::vector<sf::Vector2f> polygon = {};
-public:
-	PolygonCollider();
-	std::vector<sf::Vector2f> getPolygon() { return polygon; }
-	void setPolygon(std::vector<sf::Vector2f> p) { polygon = p; }
-	bool shapeIsCircle() { return isCircle; }
-	float getRotation() { return rotation; };
-	void setRotation(float r) { rotation = r; }
-};
+	long long getTimens();
+	std::string boolToString(bool b);
+	sf::Color changeAlpha(sf::Color color, int alpha);
 
-class RectCollider : public Collider {
-private:
-	Rect colliderShape;
-	float rotation = 0.0f;
-public:
-	RectCollider(float top, float left, float bottom, float right);
-	Rect getCollider();
-	void setCollider(Rect r);
-	float getRotation() { return rotation; };
-	void setRotation(float r) { rotation = r; }
-};
+	/* Structs for data storage */
 
-class RadiusCollider : public Collider {
-private:
-	float radius;
-	int points = 30;
-	sf::Vector2f center;
-public:
-	RadiusCollider(float r, float x, float y);
-	float getRadius();
-	void setRadius(float r);
-	sf::Vector2f getCenter();
-	void setCenter(sf::Vector2f c);
-	int getPoints() { return points; }
-	void setPoints(int p) { points = p; }
-};
+	/* Holds 4 values*/
+	struct Rect {
+		float top, left, bottom, right;
+	};
 
-class CollisionManager {
-private:
-	std::vector<Collider*> colliders;
-	bool isCollision(RadiusCollider* circle, RectCollider* rect);
-	bool isCollision(RadiusCollider* circle1, RadiusCollider* circle2);
-	bool isCollision(RectCollider* rect1, RectCollider* rect2);
-public:
-	CollisionManager();
-	Collider* makeCollider(float radius, sf::Vector2f center);
-	Collider* makeCollider(Rect rect);
-	void handleCollisions();
-};
+	/* Holds data for a line */
+	class Line : public Renderable {
+	public:
+		sf::Vector2f start;
+		sf::Vector2f end;
+		sf::Color color;
+		float thickness = 1.0f;
+		float magnitude = 35.0f;
+		Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color);
+	};
 
-/*
-	Class representing the shape to be rendered on an object
-*/
-enum shape_type { rectangle, circle, polygon };
-class ShapeComponent {
-public:
-	shape_type shapeType;
+	/* Wrapper class for sf::Text */
+	class Text : public Renderable {
+	public:
+		sf::Text drawableText;
+		Text(sf::Text text) { drawableText = text; }
+	};
 
-	sf::Vector2f rectSize;
-	sf::Vector2f origin;
-	float rotationDegree;
-	float circleRadius;
+	// Vector mathmatical functions
+	namespace vmath {
+		sf::Vector2f normalizeVector(sf::Vector2f vector);
+		float getMagnitude(sf::Vector2f vector);
 
-	sf::Color fillColor;
-	sf::Color outlineColor;
-	float outlineThickness;
+		float getDistance(sf::Vector2f v1, sf::Vector2f v2);
 
-	/* Constructor and destructor */
-	ShapeComponent();
-	~ShapeComponent();
+		sf::Vector2f rotateByDegrees(sf::Vector2f vector, float degrees);
 
-	/* Public drawable shape construction functions */
-	sf::CircleShape constructCircle();
-	sf::RectangleShape constructRectangle();
-};
+		sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
+		sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
+		float dotProduct(sf::Vector2f a, sf::Vector2f b);
 
-/*
-	No clue why I made this. I will probably use this for an image texture holder.
-*/
-class SpriteComponent {
-public:
-	sf::Texture texture;
-	// Constructors and destructors
-	SpriteComponent();
-};
+		sf::Vector2f multiplyVector(sf::Vector2f v1, float i);
+		sf::Vector2f divideVector(sf::Vector2f v1, float i);
 
-/*
-	A class containing information on positioning and scale
-*/
-class Transform {
-public:
-	// Transform private properties
-	// sf::Vector2f position;
-	sf::Vector2f size;
-	sf::Vector2f origin;
-	float rotationDegree;
-	sf::Vector2f position;
+		sf::Vector2f utof(sf::Vector2u v1);
+		float projectVector(sf::Vector2f a, sf::Vector2f b);
+	}
 
-public:
-	// Constructors and destructors
+	/* Game Management */
 
-	Transform();
-	/* Sick one liners*/
-	/* Get attribute functions */
-	sf::Vector2f getSize();
-	sf::Vector2f getPosition();
-	sf::Vector2f getOrigin();
-	float getRotation();
+	/* Collision */
 
-	/* Set attribute functions */
-	void setSize(sf::Vector2f newSize);
-	void setPosition(sf::Vector2f newPosition);
-	void setOrigin(sf::Vector2f newOrigin);
-	void setRotation(float newAngleDegree);
+	class Collider : public Renderable, public EngineComponent {
+	public:
+		float layer = 0;
+		bool isCircle = false;
+		bool isOverlapped = false;
+		bool isRigid = false;
+	};
 
-	/* Add to attribute functions */
-	void addToSize(sf::Vector2f newSize);
-	void addToPosition(sf::Vector2f newPosition);
-	void addToOrigin(sf::Vector2f newOrigin);
-	void addRotation(float newAngleDegree);
-};
+	class PolygonCollider : public Collider, public EngineComponent {
+	private:
+		GameObject* parentObject;
+		bool isCircle;
+		int circlePoints = 100;
+		std::vector<sf::Vector2f> vertices = {};
+	public:
+		PolygonCollider();
+		PolygonCollider(bool makeCircle);
 
-// Integers with the intended use as a unique identifier
-using objectRef = unsigned int;
-/*
-	Game Object for use within the engine
-*/
-class GameObject {
-private:
-	Collider* collider;
-	Transform transform;
-	ShapeComponent shape;
-	int layer = 1; // Layer 0 = UI
-	bool isVisible = true;
-public:
-	objectRef id;
+		GameObject* getParent() { return parentObject; }
+		void setParent(GameObject* obj) { parentObject = obj; }
 
-	// Constructor and destructor
-	GameObject();
-	GameObject(Collider* col);
-	~GameObject();
+		std::vector<sf::Vector2f> getPolygon() { return vertices; }
+		void setPolygon(std::vector<sf::Vector2f> p) { vertices = p; }
 
-	int getLayer() { return layer; }
-	void setLayer(int l) { layer = l; }
+		bool shapeIsCircle() { return isCircle; }
+		void setIsCircle(bool setTo) { isCircle = setTo; }
 
-	bool getVisibility() { return isVisible; }
-	void setVisibility(bool v) { isVisible = v; }
+		int getPoints() { return circlePoints; }
+		void setPoints(int points) { circlePoints = points; }
+	};
 
-	Collider* getCollider();
-	void updateCollider();
-	ShapeComponent* getShapeComponent();
-	Transform* getTransform();
-};
+	class CollisionManager: public EngineComponent {
+	private:
+		std::vector<Collider*> colliders;
+	public:
+		CollisionManager();
+	};
 
-struct Camera {
-	Transform* transform;
-	GameObject* focus;
-};
+	/*
+		Class representing the shape to be rendered on an object
+	*/
+	class ShapeComponent : public Renderable, public EngineComponent {
+	public:
+		GameObject *parentObject;
+		std::vector<sf::Vector2f> vertices = {};
+		bool isVisible = true;
+		bool isCircle = false;
 
-class Particle;
+		sf::Vector2f origin;
+		float rotationDegree;
 
-/*
-	Game Engine
-*/
-class Game {
-private:
-	long long currentTime;
-	long long lastTime;
-	long long startTime;
-	float timeScale;
+		sf::Color fillColor;
+		sf::Color outlineColor;
+		float outlineThickness;
 
-	// Private variables
-	sf::Event event;
-	sf::VideoMode videoMode;
+		/* Constructor and destructor */
+		ShapeComponent();
+		~ShapeComponent();
 
-	float backgroundBrightness = 1.0f;
+		/* Public drawable shape construction functions */
+		sf::ConvexShape constructShape();
+	};
 
-	void* manager;
+	/*
+		No clue why I made this. I will probably use this for an image texture holder.
+	*/
+	class SpriteComponent : public EngineComponent {
+	public:
+		sf::Texture texture;
+		// Constructors and destructors
+		SpriteComponent();
+	};
 
-	// Keypress handling
-	bool showColliders = false;
-	bool f1Held = false;
-	bool paused = false;
-	bool escHeld = false;
+	/*
+		A class containing information on positioning and scale
+	*/
+	class Transform : public EngineComponent {
+	public:
+		// Transform private properties
+		// sf::Vector2f position;
+		sf::Vector2f size;
+		sf::Vector2f origin;
+		float rotationDegree;
+		sf::Vector2f position;
 
-	// Camera data
-	Camera camera;
+	public:
+		// Constructors and destructors
+		Transform();
 
-	// Collisions
-	CollisionManager* collisionManager;
+		/* Sick one liners*/
+		/* Get attribute functions */
+		sf::Vector2f getSize();
+		sf::Vector2f getPosition();
+		sf::Vector2f getOrigin();
+		float getRotation();
 
-	// Buffers
-	std::vector<sf::Text> textBuffer = {};
-	std::vector<Line> lineBuffer = {};
-	std::vector<Particle*> particleBuffer = {};
+		/* Set attribute functions */
+		void setSize(sf::Vector2f newSize);
+		void setPosition(sf::Vector2f newPosition);
+		void setOrigin(sf::Vector2f newOrigin);
+		void setRotation(float newAngleDegree);
 
-	// Gameobjects
-	objectRef nextId = 1;
-	std::vector<GameObject*> gameObjects;
+		/* Add to attribute functions */
+		void addToSize(sf::Vector2f newSize);
+		void addToPosition(sf::Vector2f newPosition);
+		void addToOrigin(sf::Vector2f newOrigin);
+		void addRotation(float newAngleDegree);
+	};
 
-	// Private functions
-	void init();
-public:
-	sf::RenderWindow* window;
+	// Integers with the intended use as a unique identifier
+	using objectRef = unsigned int;
+	/*
+		Game Object for use within the engine
+	*/
+	class GameObject : public EngineComponent {
+	private:
+		Collider* collider;
+		Transform transform;
+		ShapeComponent shape;
+		bool isVisible = true;
+	public:
+		objectRef id;
 
-	// Constructors
-	Game();
-	virtual ~Game();
+		// Constructor and destructor
+		GameObject();
+		GameObject(Collider* col);
+		~GameObject();
 
-	// Accessors
-	const bool windowActive() const;
-	bool isPaused() { return paused; }
-	sf::Vector2f getWindowSize() { return vmath::utof(window->getSize()); }
+		void destroy(Game *engine);
 
-	// Time Accessors
-	float getTimescale() { return timeScale; }
-	long long getElapsedTime() { return getTimens() - startTime; }
-	long long getDeltaTime() { return currentTime - lastTime; }
+		bool getVisibility() { return isVisible; }
+		void setVisibility(bool v) { isVisible = v; }
 
-	// Get and set
-	void* getManager() { return manager; };
-	void setManager(void* m) { manager = m; }
-	void setBackgroundBrightness(float brightness) { backgroundBrightness = brightness; }
+		Collider* getCollider();
+		void updateCollider();
+		ShapeComponent* getShapeComponent();
+		Transform* getTransform();
+	};
 
-	// Camera functions
-	void setCamFocus(GameObject* obj) { camera.focus = obj; }
+	struct Camera : public EngineComponent {
+		Transform* transform;
+		GameObject* focus;
+	};
 
-	// Game update and render functions
-	void update();
-	void render();
-	void drawText(sf::Text text);
-	void drawCollider(Rect r);
-	void drawCollider(float r, sf::Vector2f c);
-	void debugLog(std::string str, std::string colorStr);
-	void debugLine(sf::Vector2f start, sf::Vector2f end);
+	class Particle;
 
-	// Object functions
-	objectRef makeObjectRef();
-	GameObject* makeObject();
-	GameObject* makeObject(Collider* col);
-	GameObject* getObject(objectRef targId);
-	void registerObject(GameObject *obj);
-	void removeObject(GameObject *obj);
-	void registerParticle(Particle *p);
-	void removeParticle(Particle* p);
+	/*
+		Game Engine
+	*/
+	class Game {
+	private:
+		long long currentTime;
+		long long lastTime;
+		long long startTime;
+		float timeScale;
 
-	// Controller
-	Controller controller;
-};
+		// Private variables
+		sf::Event event;
+		sf::VideoMode videoMode;
 
-class Particle {
-private:
-	Transform* transform;
-	ShapeComponent* shape;
-	Game* game;
-	sf::Vector2f velocity;
-	float drag;
-public:
-	float lifeTime = 0.0f;
-	int id = 0;
-	Particle(Game* engine, sf::Vector2f v);
+		float backgroundBrightness = 1.0f;
 
-	void startRendering();
-	void stopRendering();
-	void deleteParticle();
+		void* manager;
 
-	Transform* getTransform() { return transform; }
-	ShapeComponent* getShape() { return shape; }
+		// Keypress handling
+		bool showColliders = false;
+		bool f1Held = false;
+		bool paused = false;
+		bool escHeld = false;
 
-	void setDrag(float d) { drag = d; }
+		// Camera data
+		Camera camera;
 
-	void update();
-};
+		// Collisions
+		CollisionManager* collisionManager;
+
+		// Buffers
+		std::vector<EngineComponent*> engineComponents = {nullptr};
+		std::vector<Renderable*> renderableObjects = {};
+		std::vector<Renderable*> uiRenderableObjects = {};
+
+		// Gameobjects
+		objectRef nextId = 1;
+		std::vector<GameObject*> gameObjects;
+
+		// Private functions
+		void init();
+	public:
+		sf::RenderWindow* window;
+
+		// Constructors
+		Game();
+		virtual ~Game();
+
+		// Accessors
+		const bool windowActive() const;
+		bool isPaused() { return paused; }
+		sf::Vector2f getWindowSize() { return vmath::utof(window->getSize()); }
+
+		// Time Accessors
+		float getTimescale() { return timeScale; }
+		long long getElapsedTime() { return getTimens() - startTime; }
+		long long getDeltaTime() { return currentTime - lastTime; }
+
+		// Get and set
+		void* getManager() { return manager; };
+		void setManager(void* m) { manager = m; }
+		void setBackgroundBrightness(float brightness) { backgroundBrightness = brightness; }
+
+		// Camera functions
+		void setCamFocus(GameObject* obj) { camera.focus = obj; }
+
+		// Game update and render functions
+		void update();
+		void render();
+
+		// UI draw functions
+		void *drawText(sf::Text *text);
+		void *drawText(Text *text);
+		void *drawLine(Line *line);
+
+		// Screen draw functions
+		void* drawShape(ShapeComponent *shape);
+
+		// Render removal functions
+		bool removeFromRender(void *removePtr);
+		bool removeFromUI(void *removePtr);
+
+		void debugLog(std::string str, std::string colorStr);
+		void *debugLine(sf::Vector2f start, sf::Vector2f end);
+
+		// Object functions
+		GameObject* makeObject();
+		GameObject* makeObject(Collider* col);
+		GameObject* getObject(objectRef targId);
+		bool deleteObject(GameObject* delObj);
+		bool deleteObject(objectRef targId);
+
+		// Controller
+		Controller controller;
+	};
+
+	class Particle : Renderable {
+	private:
+		Transform* transform;
+		ShapeComponent* shape;
+		Game* game;
+		sf::Vector2f velocity;
+		float drag;
+	public:
+		float lifeTime = 0.0f;
+		int id = 0;
+		Particle(Game* engine, sf::Vector2f v);
+
+		void startRendering();
+		void stopRendering();
+		void deleteParticle();
+
+		Transform* getTransform() { return transform; }
+		ShapeComponent* getShape() { return shape; }
+
+		void setDrag(float d) { drag = d; }
+
+		void update();
+	};
+}
+#endif

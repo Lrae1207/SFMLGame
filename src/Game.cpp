@@ -1,11 +1,21 @@
 #include "Game.hpp"
 
+double phys::distance2D(double x1, double y1, double x2, double y2) {
+	float dx = x2 - x1;
+	float dy = y2 - y1;
+	float d = sqrtf(dx * dx + dy * dy);
+	return d;
+}
+double phys::calculateGravityAccel(double x1, double y1, double x2, double y2, double mass2) {
+	return GGRAM * GRAVITY_CONSTANT * mass2 / distance2D(x1, y1, x2, y2);
+}
+
 /* Get the timestamp in nanoseconds */
-long long getTimens() {
+long long engine::getTimens() {
 	return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
-std::string boolToString(bool b) {
+std::string engine::boolToString(bool b) {
 	if (b) {
 		return "true";
 	} else {
@@ -14,7 +24,7 @@ std::string boolToString(bool b) {
 }
 
 //  Returns a normalized vector (x and y divided by magnitude)
-sf::Vector2f vmath::normalizeVector(sf::Vector2f vector) {
+sf::Vector2f engine::vmath::normalizeVector(sf::Vector2f vector) {
 	float magnitude = sqrtf(vector.x * vector.x + vector.y * vector.y);
 
 	// This means vector is <0,0>
@@ -25,28 +35,28 @@ sf::Vector2f vmath::normalizeVector(sf::Vector2f vector) {
 	return vector;
 }
 
-float vmath::getMagnitude(sf::Vector2f vector) {
+float engine::vmath::getMagnitude(sf::Vector2f vector) {
 	return sqrtf(vector.x * vector.x + vector.y * vector.y);;
 }
 
-float vmath::dotProduct(sf::Vector2f a, sf::Vector2f b) {
+float engine::vmath::dotProduct(sf::Vector2f a, sf::Vector2f b) {
 	return a.x * b.x + a.y * b.y;
 }
 
 // Return a's distance along b of a projected on b
-float vmath::projectVector(sf::Vector2f a, sf::Vector2f b) {
+float engine::vmath::projectVector(sf::Vector2f a, sf::Vector2f b) {
 	return dotProduct(a,normalizeVector(b));
 }
 
-float vmath::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
+float engine::vmath::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
 	return getMagnitude(subtractVectors(v1, v2));
 }
 
-sf::Vector2f vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
+sf::Vector2f engine::vmath::addVectors(sf::Vector2f v1, sf::Vector2f v2) {
 	return sf::Vector2f(v1.x + v2.x, v1.y + v2.y);
 }
 
-sf::Vector2f vmath::rotateByDegrees(sf::Vector2f vector, float degrees) {
+sf::Vector2f engine::vmath::rotateByDegrees(sf::Vector2f vector, float degrees) {
 	sf::Vector2f returnVector;
 	degrees *= phys::DEGTORAD;
 	returnVector.x = vector.x * cosf(degrees) - vector.y * sinf(degrees);
@@ -55,66 +65,63 @@ sf::Vector2f vmath::rotateByDegrees(sf::Vector2f vector, float degrees) {
 }
 
 /* Returns v1 - v2 */
-sf::Vector2f vmath::subtractVectors(sf::Vector2f v1, sf::Vector2f v2) {
+sf::Vector2f engine::vmath::subtractVectors(sf::Vector2f v1, sf::Vector2f v2) {
 	return sf::Vector2f(v1.x - v2.x, v1.y - v2.y);
 }
 
-sf::Vector2f vmath::multiplyVector(sf::Vector2f v1, float i) {
+sf::Vector2f engine::vmath::multiplyVector(sf::Vector2f v1, float i) {
 	return sf::Vector2f(v1.x * i, v1.y * i);
 }
 
-sf::Vector2f vmath::divideVector(sf::Vector2f v1, float i) {
+sf::Vector2f engine::vmath::divideVector(sf::Vector2f v1, float i) {
 	return sf::Vector2f(v1.x / i, v1.y / i);
 }
 
-sf::Vector2f vmath::utof(sf::Vector2u v1) { 
+sf::Vector2f engine::vmath::utof(sf::Vector2u v1) {
 	return sf::Vector2f(v1.x, v1.y); 
 };
 
 /* Default constructor and destructor for ShapeComponent */
-ShapeComponent::ShapeComponent() {
+engine::ShapeComponent::ShapeComponent() {
+	type_id = 5;
+
 	fillColor = sf::Color(255, 0, 255, 255);
 	outlineColor = sf::Color(0, 0, 0, 255);
 	outlineThickness = 0.0f;
-	shapeType = rectangle;
 	rotationDegree = 0.0f;
-	circleRadius = 1.0f;
 
-	rectSize = sf::Vector2f(50.0f, 50.0f);
 	origin = sf::Vector2f(0.0f, 0.0f);
 }
 
-ShapeComponent::~ShapeComponent() {
+engine::ShapeComponent::~ShapeComponent() {
 
 }
 
-/*
-	Constructs a drawable RectangleShape from the data held in this class
-*/
-sf::CircleShape ShapeComponent::constructCircle() {
-	sf::CircleShape returnShape = sf::CircleShape(circleRadius, circleRadius/10+10);
-	returnShape.setFillColor(fillColor);
-	returnShape.setOrigin(sf::Vector2f(circleRadius,circleRadius));
-	returnShape.setOutlineColor(outlineColor);
-	returnShape.setOutlineThickness(outlineThickness);
-	return returnShape;
-}
+sf::ConvexShape engine::ShapeComponent::constructShape() {
+	sf::ConvexShape polygon;
 
-/*
-	Constructs a drawable RectangleShape from the data held in this class
-*/
-sf::RectangleShape ShapeComponent::constructRectangle() {
-	sf::RectangleShape returnShape;
-	returnShape.setSize(rectSize);
-	returnShape.setOrigin(sf::Vector2f(rectSize.x / 2, rectSize.y / 2));
-	returnShape.setFillColor(fillColor);
-	returnShape.setOutlineColor(outlineColor);
-	returnShape.setOutlineThickness(outlineThickness);
-	return returnShape;
+	if (isCircle) {
+		// frick circles
+		// all my homies use polygons
+	} else {
+		polygon.setPointCount(vertices.size());
+		for (int i = 0; i < vertices.size(); ++i) {
+			polygon.setPoint(i,vertices[i]);
+		}
+	}
+
+	/* Set color and orientational values */
+	polygon.setOrigin(origin);
+	polygon.setRotation(rotationDegree);
+	polygon.setFillColor(fillColor);
+	polygon.setOutlineColor(outlineColor);
+	polygon.setOutlineThickness(outlineThickness);
+
+	return polygon;
 }
 
 /* Default constructor for TransformComponent */
-Transform::Transform() {
+engine::Transform::Transform() {
 	size = sf::Vector2f(1.0f, 1.0f);
 	position = sf::Vector2f(0.0f, 0.0f);
 	origin = sf::Vector2f(0.0f, 0.0f);
@@ -124,40 +131,40 @@ Transform::Transform() {
 
 /* Sick one liners*/
 /* Get attribute functions */
-sf::Vector2f Transform::getSize() { return size; };
-sf::Vector2f Transform::getPosition() { return position; };
-sf::Vector2f Transform::getOrigin() { return origin; };
-float Transform::getRotation() { return rotationDegree; };
+sf::Vector2f engine::Transform::getSize() { return size; };
+sf::Vector2f engine::Transform::getPosition() { return position; };
+sf::Vector2f engine::Transform::getOrigin() { return origin; };
+float engine::Transform::getRotation() { return rotationDegree; };
 
 /* Set attribute functions */
-void Transform::setSize(sf::Vector2f newSize) { size = newSize; };
-void Transform::setPosition(sf::Vector2f newPosition) {
+void engine::Transform::setSize(sf::Vector2f newSize) { size = newSize; };
+void engine::Transform::setPosition(sf::Vector2f newPosition) {
 	position = sf::Vector2f(newPosition.x, newPosition.y);
 };
-void Transform::setOrigin(sf::Vector2f newOrigin) { origin = newOrigin; };
-void Transform::setRotation(float newAngleDegree) { rotationDegree = newAngleDegree; };
+void engine::Transform::setOrigin(sf::Vector2f newOrigin) { origin = newOrigin; };
+void engine::Transform::setRotation(float newAngleDegree) { rotationDegree = newAngleDegree; };
 
 /* Add to attribute functions */
-void Transform::addToSize(sf::Vector2f newSize) { size = size + newSize; };
-void Transform::addToPosition(sf::Vector2f newPosition) { position = position + newPosition; };
-void Transform::addToOrigin(sf::Vector2f newOrigin) { origin = origin + newOrigin; };
-void Transform::addRotation(float newAngleDegree) { rotationDegree += newAngleDegree; };
+void engine::Transform::addToSize(sf::Vector2f newSize) { size = size + newSize; };
+void engine::Transform::addToPosition(sf::Vector2f newPosition) { position = position + newPosition; };
+void engine::Transform::addToOrigin(sf::Vector2f newOrigin) { origin = origin + newOrigin; };
+void engine::Transform::addRotation(float newAngleDegree) { rotationDegree += newAngleDegree; };
 
 /* Default constructor for SpriteComponent */
-SpriteComponent::SpriteComponent::SpriteComponent() {
+engine::SpriteComponent::SpriteComponent::SpriteComponent() {
 
 }
 
 
 /* GameObject constructor and destructor */
-GameObject::GameObject() {
+engine::GameObject::GameObject() {
 	id = 0;
 	ShapeComponent shape;
 	collider = nullptr;
 }
 
 /* GameObject constructor and destructor */
-GameObject::GameObject(Collider* col) {
+engine::GameObject::GameObject(Collider* col) {
 	id = 0;
 	transform = Transform();
 	shape = ShapeComponent();
@@ -165,40 +172,30 @@ GameObject::GameObject(Collider* col) {
 }
 
 
-GameObject::~GameObject() {
+engine::GameObject::~GameObject() {
 
+}
+
+void engine::GameObject::destroy(Game *engine) {
+	engine->deleteObject(this);
+	delete this;
 }
 
 /* Public class functions */
 
-Collider* GameObject::getCollider() {
+engine::Collider* engine::GameObject::getCollider() {
 	return collider;
 }
 
-void GameObject::updateCollider() {
-	if (collider->isCircle) {
+void engine::GameObject::updateCollider() {
 
-	} else {
-		RectCollider* c = static_cast<RectCollider*>(collider);
-		Rect r;
-
-		r.left = transform.getPosition().x - shape.rectSize.x/2;
-		r.top = transform.getPosition().y - shape.rectSize.y/2;
-		r.right = transform.getPosition().x + shape.rectSize.x/2;
-		r.bottom = transform.getPosition().y + shape.rectSize.y/2;
-		c->setCollider(r);
-		c->setRotation(transform.getRotation());
-
-		collider = static_cast<Collider*>(c);
-		collider->isCircle = false;
-	}
 }
 
 /*
 	return ShapeComponent
 	Returns the shapeComponent
 */
-ShapeComponent* GameObject::getShapeComponent() {
+engine::ShapeComponent* engine::GameObject::getShapeComponent() {
 	return &shape;
 }
 
@@ -206,7 +203,7 @@ ShapeComponent* GameObject::getShapeComponent() {
 	return Transform
 	Returns the Transform
 */
-Transform* GameObject::getTransform() {
+engine::Transform* engine::GameObject::getTransform() {
 	return &transform;
 }
 
@@ -214,7 +211,7 @@ Transform* GameObject::getTransform() {
 	return void
 	Creates the window
 */
-void Game::init() {
+void engine::Game::init() {
 	startTime = getTimens();
 	timeScale = 1;
 
@@ -234,100 +231,63 @@ void Game::init() {
 	Constructor for game class
 	Anything that happens initially goes here
 */
-Game::Game() {
+engine::Game::Game() {
 	debugLog("Loaded Engine(game)", LOG_GREEN);
 	init();
 }
 
-/*
-	return objectRef(unsigned int) - id of new gameobject
-	Creates a default GameObject.
-*/
-objectRef Game::makeObjectRef() {
+engine::GameObject* engine::Game::makeObject() {
 	GameObject* newObject = new GameObject();
 	newObject->id = nextId;
 	nextId++;
 	gameObjects.push_back(newObject);
-	return newObject->id;
-}
-
-/*
-	return GameObject
-	Creates a default GameObject.
-*/
-GameObject* Game::makeObject() {
-	GameObject* newObject = new GameObject();
-	newObject->id = nextId;
-	nextId++;
-	gameObjects.push_back(newObject);
+	drawShape(newObject->getShapeComponent());
 	return newObject;
 }
 
-/*
-	return GameObject
-	Creates a default GameObject.
-*/
-GameObject* Game::makeObject(Collider* col) {
+engine::GameObject* engine::Game::makeObject(Collider* col) {
 	GameObject* newObject = new GameObject(col);
 	newObject->id = nextId;
 	nextId++;
 	gameObjects.push_back(newObject);
+	drawShape(newObject->getShapeComponent());
 	return newObject;
 }
 
-/*
-	return GameObject - gameobject with specified objectId
-	Iterates through the gameObject list to find and return the object with the given id.
-	If the object isn't found, it returns an object with an id of 0. This id should be checked before use.
-*/
-GameObject* Game::getObject(objectRef targId) {
+engine::GameObject* engine::Game::getObject(objectRef targId) {
 	for (GameObject* obj : gameObjects) {
 		if (obj->id == targId) {
 			return obj;
 		}
 	}
-	GameObject* newObject = new GameObject();
-	newObject->id = 0;
-	return newObject;
+	nullptr;
 }
 
-void Game::registerObject(GameObject* obj) {
-	obj->id = nextId++;
-	gameObjects.push_back(obj);
-}
-
-void Game::removeObject(GameObject* obj) {
-	for (int i = 0; i < gameObjects.size(); ++i) {
-		if (gameObjects[i] == obj) {
+bool engine::Game::deleteObject(GameObject* delObj) {
+	int i = 0;
+	for (GameObject* obj : gameObjects) {
+		if (obj == obj) {
 			gameObjects.erase(gameObjects.begin() + i);
-			return;
+			return true;
 		}
+		i++;
 	}
+	return false;
 }
 
-void Game::registerParticle(Particle* p) {
-	p->id = nextId++;
-	particleBuffer.push_back(p);
-}
-
-void Game::removeParticle(Particle* p) {
-	for (int i = 0; i < particleBuffer.size(); ++i) {
-		if (particleBuffer[i] == p) {
-			particleBuffer.erase(particleBuffer.begin() + i);
-			return;
-		}
-	}
+bool engine::Game::deleteObject(objectRef targId) {
+	return deleteObject(getObject(targId));
 }
 
 // Destructor
-Game::~Game() {
+engine::Game::~Game() {
 	delete window;
 }
 
 /*
 	Used for the external game loop to make sure the window isn't open
 */
-const bool Game::windowActive() const {
+const bool engine::Game::windowActive() const {
 	return window->isOpen();
 }
 
@@ -339,7 +299,7 @@ const bool Game::windowActive() const {
 
 	- Handles events (such as keypresses)
 */
-void Game::update() {
+void engine::Game::update() {
 	lastTime = currentTime;
 	currentTime = getTimens();
 
@@ -390,328 +350,265 @@ void Game::update() {
 	- Renders objects
 	- Writes changes to the window
 */
-void Game::render() {
+void engine::Game::render() {
 	// Clear the screen with this color as argument
 	window->clear(sf::Color(100*backgroundBrightness, 150*backgroundBrightness, 255*backgroundBrightness, 255));
 
-	std::vector<sf::CircleShape> circleColliders; // Put these into one later
-	std::vector<sf::RectangleShape> rectColliders;
+	Transform* cameraTransform = camera.transform; // Transform of the camera
 
-	std::vector<sf::RectangleShape> uiObjects;
+	std::vector<sf::ConvexShape> drawBuffer = {};
 
-	std::vector<sf::CircleShape> circleObjects;
-	std::vector<sf::RectangleShape> rectObjects;
+	// Sort first by layer
+	for (Renderable* renderObj : renderableObjects) { // Convert each renderable object to a convex polygon that sfml can draw or directly draw it
+		switch (renderObj->type_id) { // Change type_id to its respective type
+		case 0: {
+			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
 
-	Transform* cameraTransform = camera.transform;
+			// Start, end is essentially a rect
+			sf::Vector2f start = line->start;
+			sf::Vector2f end = line->end;
+			start.x -= line->thickness;
+			start.y -= line->thickness;
+			end.x += line->thickness;
+			end.y += line->thickness;
 
-	// Render objects by drawing directly on window
-	for (GameObject* obj : gameObjects) {
-		/* Draw the object */
-		Transform transform = *obj->getTransform();
-		ShapeComponent shapeComp = *obj->getShapeComponent();
+			// Convert the line to a rectangle for drawing
+			sf::Vector2f lineDir = sf::Vector2f(vmath::getDistance(start, end), line->magnitude);
+			sf::RectangleShape drawLine(lineDir);
 
-		if (!obj->getVisibility()) { // Skip inactive objects
+			drawLine.setFillColor(line->color); // Color
+
+			// Make position relative to the camera
+			drawLine.setPosition(vmath::subtractVectors(line->start, cameraTransform->getPosition()));
+			lineDir = vmath::subtractVectors(line->end, line->start);
+
+			// Rotate to proper position
+			drawLine.rotate(phys::RADTODEG * atan2f(lineDir.y, lineDir.x) - 90.0f);
+
+			window->draw(drawLine); // Draw
+			break;
+		}
+		case 1:
+			break;
+		case 5: {
+			ShapeComponent shapeComp = *reinterpret_cast<ShapeComponent*>(renderObj);
+
+			if (!shapeComp.isVisible) { // Skip invisible objects
+				continue;
+			}
+
+			GameObject* obj = shapeComp.parentObject;
+			Transform transform = *obj->getTransform();
+
+			sf::ConvexShape polygon = shapeComp.constructShape();
+			polygon.move(transform.getPosition());
+			polygon.rotate(transform.getRotation());
+			polygon.scale(transform.getSize());
+
+			window->draw(polygon);
+
+			break;
+		}
+		case 6: {
+			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
+			window->draw(text->drawableText); // Draw
+			break;
+		}
+		default:
 			continue;
 		}
+	}
 
-		if (shapeComp.shapeType == shape_type::rectangle) { // Create and set attributes of rectangle shape
-			sf::RectangleShape drawShape = shapeComp.constructRectangle();
-			if (obj->getLayer() == 0) {
-				drawShape.move(transform.getPosition().x, transform.getPosition().y);
-				drawShape.rotate(transform.rotationDegree);
-				uiObjects.push_back(drawShape);
-			}
-			else {
-				drawShape.move(transform.getPosition().x - cameraTransform->getPosition().x, transform.getPosition().y - cameraTransform->getPosition().y);
-				drawShape.rotate(transform.rotationDegree);
-				rectObjects.push_back(drawShape);
-			}
-		} else if (shapeComp.shapeType == shape_type::circle) { // Create and set attributes of circle shape
-			sf::CircleShape drawShape = shapeComp.constructCircle();
-			if (obj->getLayer() == 0) {
-				drawShape.move(transform.getPosition().x, transform.getPosition().y);
-			}
-			else {
-				drawShape.move(transform.getPosition().x - cameraTransform->getPosition().x, transform.getPosition().y - cameraTransform->getPosition().y);
-			}
-			drawShape.scale(transform.getSize());
-			drawShape.rotate(transform.rotationDegree);
-			circleObjects.push_back(drawShape);
+	for (Renderable* renderObj : uiRenderableObjects) { // Draw UI on top
+		switch (renderObj->type_id) { // Change type_id to its respective type
+		case 0: {
+			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
+
+			// Start, end is essentially a rect
+			sf::Vector2f start = line->start;
+			sf::Vector2f end = line->end;
+			start.x -= line->thickness;
+			start.y -= line->thickness;
+			end.x += line->thickness;
+			end.y += line->thickness;
+
+			// Convert the line to a rectangle for drawing
+			sf::Vector2f lineDir = sf::Vector2f(vmath::getDistance(start, end), line->magnitude);
+			sf::RectangleShape drawLine(lineDir);
+
+			drawLine.setFillColor(line->color); // Color
+
+			// Make position relative to the camera
+			drawLine.setPosition(vmath::subtractVectors(line->start, cameraTransform->getPosition()));
+			lineDir = vmath::subtractVectors(line->end, line->start);
+
+			// Rotate to proper position
+			drawLine.rotate(phys::RADTODEG * atan2f(lineDir.y, lineDir.x) - 90.0f);
+
+			window->draw(drawLine); // Draw
+			break;
 		}
-
-		/* Add the collider shapes to the buffer */
-		Collider* col = obj->getCollider();
-		if (showColliders && col != nullptr) {
-			if (col->isCircle) { // Create and set attributes of circle collider
-				RadiusCollider* collider = static_cast<RadiusCollider*>(col);
-				sf::CircleShape drawShape;
-				drawShape.setPointCount(collider->getPoints());
-				drawShape.setOrigin(sf::Vector2f(collider->getRadius(), collider->getRadius()));
-				drawShape.setPosition(sf::Vector2f(collider->getCenter().x - cameraTransform->getPosition().x, collider->getCenter().y - cameraTransform->getPosition().y));
-				drawShape.setRadius(collider->getRadius());
-				drawShape.setFillColor(sf::Color(0, 0, 0, 0));
-				drawShape.setOutlineColor(sf::Color(0, 255, 0));
-				drawShape.setOutlineThickness(3.0f);
-				circleColliders.push_back(drawShape);
-			} else { // Create and set attributes of  rectangle collider
-				RectCollider* collider = static_cast<RectCollider*>(col);
-				sf::RectangleShape drawShape;
-				Rect colliderShape = collider->getCollider();
-				sf::Vector2f size = sf::Vector2f(colliderShape.right - colliderShape.left, colliderShape.bottom - colliderShape.top);
-				drawShape.setPosition(sf::Vector2f(colliderShape.left - cameraTransform->getPosition().x + size.x/2, colliderShape.top - cameraTransform->getPosition().y + size.y/2));
-				drawShape.setSize(sf::Vector2f(size.x,size.y));
-				drawShape.setOrigin(size.x/2,size.y/2);
-				drawShape.setRotation(collider->getRotation());
-				drawShape.setFillColor(sf::Color(0, 0, 0, 0));
-				drawShape.setOutlineColor(sf::Color(0, 255, 0));
-				drawShape.setOutlineThickness(3.0f);
-				rectColliders.push_back(drawShape);
+		case 1:
+			break;
+		case 2:
+			break;
+		case 3:
+			break;
+		case 4: {
+			if (!showColliders) {
+				continue;
 			}
+
+			PolygonCollider* col = reinterpret_cast<PolygonCollider*>(renderObj);
+			std::vector<sf::Vector2f> polygon = col->getPolygon();
+
+			sf::ConvexShape shape;
+			shape.setPointCount(polygon.size());
+			
+			for (int i = 0; i < polygon.size(); ++i) {
+				shape.setPoint(i, polygon[i]);
+			}
+
+			Transform transform = *col->getParent()->getTransform();
+			shape.move(transform.getPosition());
+			shape.rotate(transform.getRotation());
+			shape.scale(transform.getSize());
+
+			window->draw(shape);
+
+			break;
 		}
-	}
+		case 5: {
+			ShapeComponent shapeComp = *reinterpret_cast<ShapeComponent*>(renderObj);
 
-	/* Draw the objects */
-	for (sf::CircleShape shape : circleObjects) { window->draw(shape); }
-	for (sf::RectangleShape shape : rectObjects) { 
-		window->draw(shape); 
-	}
+			if (!shapeComp.isVisible) { // Skip invisible objects
+				continue;
+			}
 
-	/* Draw Particles */
-	for (Particle* p : particleBuffer) {
-		sf::RectangleShape particle = p->getShape()->constructRectangle();
-		window->draw(particle);
-	}
+			GameObject* obj = shapeComp.parentObject;
+			Transform transform = *obj->getTransform();
 
-	/* Draw the colliders */
-	for (sf::CircleShape shape : circleColliders) { window->draw(shape); }
-	for (sf::RectangleShape shape : rectColliders) {
-		window->draw(shape); }
+			sf::ConvexShape polygon = shapeComp.constructShape();
+			polygon.move(transform.getPosition());
+			polygon.rotate(transform.getRotation());
+			polygon.scale(transform.getSize());
 
-	/* Draw UI */
-	for (sf::RectangleShape shape : uiObjects) { window->draw(shape); }
-
-	/* Draw text */
-	for (sf::Text text : textBuffer) { window->draw(text); }
-
-	/* Draw lines */
-	if (showColliders) {
-		for (const Line& line : lineBuffer) {
-			sf::Vector2f start = line.start;
-			sf::Vector2f end = line.end;
-			start.x -= line.thickness;
-			start.y -= line.thickness;
-			end.x += line.thickness;
-			end.y += line.thickness;
-			sf::Vector2f screenPos = sf::Vector2f(vmath::getDistance(start, end), line.magnitude);
-			sf::RectangleShape drawLine(screenPos);
-			drawLine.setFillColor(line.color);
-			drawLine.setPosition(vmath::subtractVectors(line.start, cameraTransform->getPosition()));
-			screenPos = vmath::subtractVectors(line.end, line.start);
-			drawLine.rotate(phys::RADTODEG * atan2f(screenPos.y, screenPos.x) - 90.0f);
-			window->draw(drawLine);
+			window->draw(polygon);
+			break;
+		}
+		case 6: {
+			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
+			window->draw(text->drawableText); // Draw
+			break;
+		}
+		default:
+			continue;
 		}
 	}
 
 	// Write changes to window
 	window->display();
-
-	textBuffer = {};
-	lineBuffer = {};
 }
 
-void Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
-	lineBuffer.push_back(Line(start,end,sf::Color::Green));
+void *engine::Game::drawText(sf::Text *text) {
+	Renderable* r = dynamic_cast<Renderable*>(text);
+	uiRenderableObjects.push_back(r);
+	return static_cast<void*>(r);
 }
 
-void Game::drawText(sf::Text text){
-	textBuffer.push_back(text);
+void *engine::Game::drawText(Text* text) {
+	Renderable* r = dynamic_cast<Renderable*>(&text->drawableText);
+	uiRenderableObjects.push_back(r);
+	return static_cast<void*>(r);
 }
 
-void Game::drawCollider(Rect r) {
-	sf::RectangleShape drawShape;
-	drawShape.setFillColor(sf::Color(0, 0, 0, 0));
-	drawShape.setOutlineThickness(10.0f);
-	drawShape.setOutlineColor(sf::Color(0, 255, 0));
-	drawShape.setOrigin(sf::Vector2f(0, 0));
-	drawShape.setPosition(r.left, r.top);
-	drawShape.setSize(sf::Vector2f(r.right - r.left, r.bottom - r.top));
-	window->draw(drawShape);
+void* engine::Game::drawLine(Line* line) {
+	Renderable* r = dynamic_cast<Renderable*>(line);
+	uiRenderableObjects.push_back(r);
+	return static_cast<void*>(r);
 }
 
-void Game::drawCollider(float r, sf::Vector2f c) {
-	sf::CircleShape drawShape;
-	drawShape.setFillColor(sf::Color(0, 0, 0, 0));
-	drawShape.setOutlineThickness(10.0f);
-	drawShape.setOutlineColor(sf::Color(0, 255, 0));
-	drawShape.setPosition(c);
-	drawShape.setRadius(r);
-	window->draw(drawShape);
+void* engine::Game::drawShape(ShapeComponent *shape) {
+	Renderable* r = dynamic_cast<Renderable*>(shape);
+	renderableObjects.push_back(r);
+	return static_cast<void*>(r);
 }
 
-void Game::debugLog(std::string str, std::string colorStr) {
+bool engine::Game::removeFromRender(void* removePtr) {
+	int i = 0;
+	for (Renderable* r : renderableObjects) {
+		if (r == removePtr) {
+			renderableObjects.erase(renderableObjects.begin() + i);
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
+
+bool engine::Game::removeFromUI(void* removePtr) {
+	int i = 0;
+	for (Renderable *r : uiRenderableObjects) {
+		if (r == removePtr) {
+			uiRenderableObjects.erase(uiRenderableObjects.begin() + i);
+			return true;
+		}
+		i++;
+	}
+	return false;
+}
+
+void engine::Game::debugLog(std::string str, std::string colorStr) {
 	std::cout << getElapsedTime() << "|" << colorStr << str << LOG_RESET <<  "\n";
 }
 
-RectCollider::RectCollider(float top, float left, float right, float bottom) {
-	Rect col;
-	col.top = top;
-	col.left = left;
-	col.right = right;
-	col.bottom = bottom;
-
-	colliderShape = col;
+void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
+	Line line = Line(start, end, sf::Color::Green);
+	Renderable* r = dynamic_cast<Renderable*>(&line);
+	uiRenderableObjects.push_back(dynamic_cast<Renderable*>(&line));
+	return static_cast<void*>(r);
 }
 
-Rect RectCollider::getCollider() {
-	return colliderShape;
+engine::PolygonCollider::PolygonCollider() {
+	type_id = 4;
+	isCircle = false;
 }
 
-void RectCollider::setCollider(Rect r) {
-	colliderShape = r;
+engine::PolygonCollider::PolygonCollider(bool makeCircle) {
+	type_id = 4;
+	isCircle = makeCircle;
 }
 
-RadiusCollider::RadiusCollider(float r, float x, float y) {
-	radius = r;
-	center = sf::Vector2f(x, y);
-}
-
-float RadiusCollider::getRadius() {
-	return radius;
-}
-
-void RadiusCollider::setRadius(float r) {
-	radius = r;
-}
-
-sf::Vector2f RadiusCollider::getCenter() {
-	return center;
-}
-
-void RadiusCollider::setCenter(sf::Vector2f c) {
-	center = c;
-}
-
-CollisionManager::CollisionManager() {
-
+engine::CollisionManager::CollisionManager() {
 
 }
 
-Collider* CollisionManager::makeCollider(float radius, sf::Vector2f center) {
-	RadiusCollider* col = new RadiusCollider(radius, center.x, center.y);
-	col->setRadius(radius);
-	col->setCenter(center);
-
-	return (static_cast<Collider*>(col));
-}
-
-Collider* CollisionManager::makeCollider(Rect rect) {
-	RectCollider* col = new RectCollider(rect.top, rect.left, rect.bottom, rect.right);
-	col->setCollider(rect);
-
-	return (static_cast<Collider*>(col));
-}
-
-// https://stackoverflow.com/questions/401847/circle-rectangle-collision-detection-intersection
-// Returns a collision between a circle and a rectangle
-bool CollisionManager::isCollision(RadiusCollider* circle, RectCollider* rect) {
-	float cRadius = circle->getRadius();
-	sf::Vector2f circleCenter = circle->getCenter();
-	Rect rectShape = rect->getCollider();
-	float rHeight = rectShape.bottom - rectShape.top;
-	float rWidth = rectShape.right - rectShape.left;
-
-	sf::Vector2f circleDistance;
-
-	circleDistance.y = abs(circleCenter.y - (rectShape.bottom - rHeight));
-	circleDistance.x = abs(circleCenter.x - (rectShape.right - rWidth));
-
-	if (circleDistance.x > (rWidth / 2 + cRadius)) { return false; }
-	if (circleDistance.y > (rHeight / 2 + cRadius)) { return false; }
-
-	if (circleDistance.x <= (rWidth / 2)) { return true; }
-	if (circleDistance.y <= (rHeight / 2)) { return true; }
-
-	float cornerDistance_sq = powf(circleDistance.x - rWidth / 2, 2) + powf(circleDistance.y - rHeight / 2, 2);
-
-	return (cornerDistance_sq <= (cRadius * cRadius));
-}
-
-// Returns a collision between two circles
-bool CollisionManager::isCollision(RadiusCollider* circle1, RadiusCollider* circle2) {
-
-	return false;
-}
-
-// Returns a collision between two rectangles
-bool CollisionManager::isCollision(RectCollider* rect1, RectCollider* rect2) {
-	return false;
-}
-
-void CollisionManager::handleCollisions() {
-	// Needs to be optimized; basic O(n^2) algorithm
-	for (Collider* c1 : colliders) {
-		for (Collider* c2 : colliders) {
-			if (c1 == c2) { continue; };
-			bool collisionOccurred = false;
-			if (c1->isCircle && c2->isCircle) { // Both colliders are circles
-				RadiusCollider* col1 = static_cast<RadiusCollider*>(c1);
-				RadiusCollider* col2 = static_cast<RadiusCollider*>(c2);
-				collisionOccurred = isCollision(col1, col2);
-			}
-			else if (!c1->isCircle && c2->isCircle) { // Collider 2 is a circle and collider 1 isn't
-				RectCollider* col1 = static_cast<RectCollider*>(c1);
-				RadiusCollider* col2 = static_cast<RadiusCollider*>(c2);
-				collisionOccurred = isCollision(col2, col1);
-			}
-			else if (c1->isCircle && !c2->isCircle) { // Collider 1 is a circle and collider 2 isn't
-				RadiusCollider* col1 = static_cast<RadiusCollider*>(c1);
-				RectCollider* col2 = static_cast<RectCollider*>(c2);
-				collisionOccurred = isCollision(col1, col2);
-			}
-			else { // Both aren't circles
-				RectCollider* col1 = static_cast<RectCollider*>(c1);
-				RectCollider* col2 = static_cast<RectCollider*>(c2);
-				collisionOccurred = isCollision(col1, col2);
-			}
-
-			c1->isOverlapped = collisionOccurred;
-			c2->isOverlapped = collisionOccurred;
-		}
-	}
-}
-
-sf::Color changeAlpha(sf::Color color, int alpha) {
+sf::Color engine::changeAlpha(sf::Color color, int alpha) {
 	return sf::Color(color.r,color.g,color.b,alpha);
 }
 
-Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
+engine::Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
+	type_id = 0;
 	start = begin;
 	end = stop;
 	this->color = color;
 }
 
-Particle::Particle(Game* engine, sf::Vector2f v) {
+engine::Particle::Particle(Game* engine, sf::Vector2f v) {
+	type_id = 1;
 	transform = new Transform();
 	shape = new ShapeComponent();
 	game = engine;
 	velocity = v;
 }
 
-void Particle::update() {
+void engine::Particle::update() {
 	lifeTime += game->getDeltaTime();
 
 	velocity = vmath::multiplyVector(velocity, drag);
 	transform->addToPosition(velocity);
 }
 
-void Particle::startRendering() {
-	game->registerParticle(this);
-}
-
-void Particle::stopRendering() {
-	game->removeParticle(this);
-}
-
-void Particle::deleteParticle() {
+void engine::Particle::deleteParticle() {
 	delete this;
 }
