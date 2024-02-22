@@ -14,7 +14,7 @@ int main() {
 	game.debugLog("Loaded GameObject(pauseMenu)", LOG_GREEN);
 
 	/* 2D Objects */
-	intern::Planet earth(&game,49700,5000,sf::Vector2f(400.0f,50000.0f));
+	intern::Planet earth(&game,9500,500,sf::Vector2f(400.0f,10000.0f));
 	earth.setLandColor(sf::Color(0,100,0));
 	game.debugLog("Loaded GameObject(earth)", LOG_GREEN);
 	intern::GameManager manager(&game);
@@ -27,11 +27,17 @@ int main() {
 	game.debugLog("Loaded GameObject(playerController)", LOG_GREEN);
 
 	// Initiation code
-	engine::PolygonCollider* collider = new engine::PolygonCollider();
-	collider->setIsCircle(false);
-	engine::GameObject *g = new engine::GameObject(static_cast<engine::Collider*>(collider));
+	engine::Rect r;
+	r.top = -100;
+	r.left = -50;
+	r.bottom = 100;
+	r.right = 50;
+
+	
+
+	engine::GameObject *g = new engine::GameObject(engine::rectToPolygon(r), &game);
 	intern::Part* p = rocket.makePart(9,100,g);
-	engine::ShapeComponent* shape = p->object->getShapeComponent();
+	engine::ShapeComponent* shape = dynamic_cast<engine::GameObject*>(p)->getShapeComponent();
 	shape->fillColor = sf::Color(100,100,100);
 	// rectsize/ need to add points
 	p->thrustDirection = sf::Vector2f(0,-1);

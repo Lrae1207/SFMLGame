@@ -8,6 +8,7 @@
 #include <iostream> // Debugging output
 #include <chrono> // Timestamps
 #include <cmath> // For vector math
+#include <algorithm> // For sort
 
 #ifndef PHYSICS_HPP
 #define PHYSICS_HPP
@@ -40,17 +41,25 @@ namespace engine {
 	class Renderable {
 	public:
 		int layer = 1; // 0 is UI
-		int type_id; // type of object
+		int type_id = 0; // type of object
+		bool cullThis = false;
 		/*
 			id:
-			0 - Line
 			1 - Particle
-			2 - RectCollider
+			2 - Line
 			3 - RadiusCollider
 			4 - PolygonCollider
 			5 - ShapeComponent
 			6 - Text
 		*/
+
+		bool operator < (const Renderable& other) const {
+			return (layer < other.layer);
+		}
+
+		bool operator > (const Renderable& other) const {
+			return (layer > other.layer);
+		}
 	};
 
 	long long getTimens();
@@ -64,6 +73,8 @@ namespace engine {
 		float top, left, bottom, right;
 	};
 
+	std::vector<sf::Vector2f> rectToPolygon(Rect r);
+
 	/* Holds data for a line */
 	class Line : public Renderable {
 	public:
@@ -72,14 +83,20 @@ namespace engine {
 		sf::Color color;
 		float thickness = 1.0f;
 		float magnitude = 35.0f;
+		Line();
 		Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color);
 	};
 
-	/* Wrapper class for sf::Text */
+	/* Class for sf::Text construction */
 	class Text : public Renderable {
 	public:
-		sf::Text drawableText;
-		Text(sf::Text text) { drawableText = text; }
+		sf::Vector2f position = sf::Vector2f(0.0f,0.0f);
+		sf::Vector2f origin = sf::Vector2f(0.0f, 0.0f);
+		sf::Color color = sf::Color(255,255,255);
+		std::string textString= "";
+		int charSize = 24;
+		sf::Font *font = nullptr;
+		Text(sf::Color col, sf::Vector2f pos, sf::Vector2f org, std::string text, int size, sf::Font* fontptr) { textString = text; position = pos; origin = org; type_id = 6; layer = 0; color = col; charSize = size; font = fontptr; }
 	};
 
 	// Vector mathmatical functions
@@ -93,13 +110,14 @@ namespace engine {
 
 		sf::Vector2f addVectors(sf::Vector2f v1, sf::Vector2f v2);
 		sf::Vector2f subtractVectors(sf::Vector2f v1, sf::Vector2f v2);
+
 		float dotProduct(sf::Vector2f a, sf::Vector2f b);
+		float distanceAlongProjection(sf::Vector2f a, sf::Vector2f b);
 
 		sf::Vector2f multiplyVector(sf::Vector2f v1, float i);
 		sf::Vector2f divideVector(sf::Vector2f v1, float i);
 
 		sf::Vector2f utof(sf::Vector2u v1);
-		float projectVector(sf::Vector2f a, sf::Vector2f b);
 	}
 
 	/* Game Management */
@@ -121,8 +139,9 @@ namespace engine {
 		int circlePoints = 100;
 		std::vector<sf::Vector2f> vertices = {};
 	public:
-		PolygonCollider();
-		PolygonCollider(bool makeCircle);
+		PolygonCollider(std::vector<sf::Vector2f> polygon, GameObject* obj);
+		PolygonCollider(Rect r, GameObject *obj);
+		PolygonCollider(bool makeCircle, float radius, GameObject* obj);
 
 		GameObject* getParent() { return parentObject; }
 		void setParent(GameObject* obj) { parentObject = obj; }
@@ -137,12 +156,32 @@ namespace engine {
 		void setPoints(int points) { circlePoints = points; }
 	};
 
-	class CollisionManager: public EngineComponent {
-	private:
-		std::vector<Collider*> colliders;
-	public:
-		CollisionManager();
-	};
+	// Namespace for collision management;
+	// Seperate namespace bc I expect a lot of stuff to go here
+	namespace collisions {
+		// Functions
+		bool overlap1D(float a1, float a2, float b1, float b2);
+		
+		// Classes
+		struct Collision {
+			PolygonCollider* c1 = nullptr;
+			PolygonCollider* c2 = nullptr;
+			float overlap = 0.0f;
+		};
+
+		using collisionPair = sf::Vector2<Collision*>;
+		
+		// Algorithms
+		std::vector<collisionPair> broadSortAndSweep(std::vector<PolygonCollider*> colliders);
+		std::vector<collisionPair> narrowSAT(std::vector<collisionPair> pairs);
+
+		class CollisionManager : public EngineComponent {
+		private:
+			std::vector<PolygonCollider*> colliders;
+		public:
+			CollisionManager();
+		};
+	}
 
 	/*
 		Class representing the shape to be rendered on an object
@@ -150,9 +189,10 @@ namespace engine {
 	class ShapeComponent : public Renderable, public EngineComponent {
 	public:
 		GameObject *parentObject;
-		std::vector<sf::Vector2f> vertices = {};
+		std::vector<sf::Vector2f> vertices = {}; // y of index 1 represents radius of circle
 		bool isVisible = true;
 		bool isCircle = false;
+		int sides = 3;
 
 		sf::Vector2f origin;
 		float rotationDegree;
@@ -162,7 +202,7 @@ namespace engine {
 		float outlineThickness;
 
 		/* Constructor and destructor */
-		ShapeComponent();
+		ShapeComponent(std::vector<sf::Vector2f> polygon, GameObject *obj);
 		~ShapeComponent();
 
 		/* Public drawable shape construction functions */
@@ -184,16 +224,14 @@ namespace engine {
 	*/
 	class Transform : public EngineComponent {
 	public:
-		// Transform private properties
-		// sf::Vector2f position;
+		GameObject *parentObject;
 		sf::Vector2f size;
 		sf::Vector2f origin;
 		float rotationDegree;
 		sf::Vector2f position;
 
-	public:
 		// Constructors and destructors
-		Transform();
+		Transform(GameObject *obj);
 
 		/* Sick one liners*/
 		/* Get attribute functions */
@@ -201,12 +239,14 @@ namespace engine {
 		sf::Vector2f getPosition();
 		sf::Vector2f getOrigin();
 		float getRotation();
+		GameObject* getParent() { return parentObject; }
 
 		/* Set attribute functions */
 		void setSize(sf::Vector2f newSize);
 		void setPosition(sf::Vector2f newPosition);
 		void setOrigin(sf::Vector2f newOrigin);
 		void setRotation(float newAngleDegree);
+		void setParent(GameObject* obj) { parentObject = obj; }
 
 		/* Add to attribute functions */
 		void addToSize(sf::Vector2f newSize);
@@ -222,26 +262,34 @@ namespace engine {
 	*/
 	class GameObject : public EngineComponent {
 	private:
-		Collider* collider;
-		Transform transform;
-		ShapeComponent shape;
+		PolygonCollider* collider;
+		Transform *transform;
+		ShapeComponent *shape;
 		bool isVisible = true;
+		Game* engine;
 	public:
+		std::string objName = "default";
 		objectRef id;
 
 		// Constructor and destructor
-		GameObject();
-		GameObject(Collider* col);
+		GameObject(Game* game);
+		GameObject(PolygonCollider* col, Game* game);
+		GameObject(std::vector<sf::Vector2f> polygon, Game* game);
+		GameObject(std::vector<sf::Vector2f> polygon, PolygonCollider* col, Game* game);
 		~GameObject();
 
-		void destroy(Game *engine);
+		void destroy();
+
+		void makeCircle(bool isCircle);
 
 		bool getVisibility() { return isVisible; }
 		void setVisibility(bool v) { isVisible = v; }
 
-		Collider* getCollider();
+		PolygonCollider* getCollider();
 		void updateCollider();
+		void removeCollider();
 		ShapeComponent* getShapeComponent();
+		void removeShapeComponent();
 		Transform* getTransform();
 	};
 
@@ -257,6 +305,7 @@ namespace engine {
 	*/
 	class Game {
 	private:
+		long long tick = 0;
 		long long currentTime;
 		long long lastTime;
 		long long startTime;
@@ -280,7 +329,7 @@ namespace engine {
 		Camera camera;
 
 		// Collisions
-		CollisionManager* collisionManager;
+		collisions::CollisionManager* collisionManager;
 
 		// Buffers
 		std::vector<EngineComponent*> engineComponents = {nullptr};
@@ -322,13 +371,16 @@ namespace engine {
 		void update();
 		void render();
 
+		// Sorting algorithms
+		std::vector<Renderable*> sortRenderables(std::vector<Renderable*> renders);
+
 		// UI draw functions
-		void *drawText(sf::Text *text);
-		void *drawText(Text *text);
-		void *drawLine(Line *line);
+		void *drawText(Text *text, bool isUI);
+		void *drawLine(Line *line, bool isUI);
 
 		// Screen draw functions
-		void* drawShape(ShapeComponent *shape);
+		void* drawShape(ShapeComponent *shape, bool isUI);
+		void* drawCollider(PolygonCollider* col);
 
 		// Render removal functions
 		bool removeFromRender(void *removePtr);
@@ -338,8 +390,10 @@ namespace engine {
 		void *debugLine(sf::Vector2f start, sf::Vector2f end);
 
 		// Object functions
-		GameObject* makeObject();
-		GameObject* makeObject(Collider* col);
+		GameObject* makeObject(int layer, std::vector<sf::Vector2f> polygon, bool toUI);
+		GameObject* makeObject(int layer, std::vector<sf::Vector2f> polygon, PolygonCollider* col, bool toUI);
+		GameObject* makeObject(int layer, float radius, bool toUI);
+		GameObject* registerObject(GameObject* obj, bool toUI);
 		GameObject* getObject(objectRef targId);
 		bool deleteObject(GameObject* delObj);
 		bool deleteObject(objectRef targId);
@@ -347,6 +401,7 @@ namespace engine {
 		// Controller
 		Controller controller;
 	};
+
 
 	class Particle : Renderable {
 	private:

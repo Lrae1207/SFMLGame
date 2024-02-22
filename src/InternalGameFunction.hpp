@@ -47,7 +47,7 @@ namespace intern {
 		engine::GameObject* background;
 
 		sf::Font pausedFont;
-		sf::Text pausedText;
+		engine::Text *pausedMessage;
 	public:
 		PauseMenu(engine::Game* engine);
 		void update();
@@ -59,9 +59,10 @@ namespace intern {
 		float thrust;
 		float weight;
 		float durability;
+		std::vector<sf::Vector2f> polygon;
 	};
 
-	class Rocket {
+	class Rocket : public engine::GameObject {
 	private:
 		long long dTime = 0;
 		engine::Game* game;
@@ -77,21 +78,24 @@ namespace intern {
 		float totalThrust;
 		float totalWeight;
 
-		engine::GameObject* parentObject; // Parent of all rocket parts
+		engine::Line *velocityLine;
+		engine::Line *gravityLine;
 	public:
 		float thrustScaler = powf(10, 0);
 
 		void applyControlRotation(float force);
 
+		engine::Game* getEngine() { return game; };
 		Rocket(engine::Game* engine);
 		void toggleThrust() { isThrust = !isThrust; game->debugLog("rocketThrust : " + engine::boolToString(isThrust), LOG_CYAN); }
 		void update();
 		Part* makePart(float thrust, float weight, engine::GameObject* obj);
 		Part* instantiatePart(PartPrefab prefab);
 		void registerPart(Part* p);
+		engine::GameObject* getObject() { return dynamic_cast<engine::GameObject*>(this); }
 	};
 
-	class Part {
+	class Part : public engine::GameObject {
 	public:
 		RocketParticleManager* particleManager = nullptr;
 		float thrust = 0;
@@ -101,11 +105,9 @@ namespace intern {
 		float weight = 1;
 		float durability = 100;
 
-		engine::GameObject* object = nullptr;
-
 		Rocket* rocket = nullptr;
-		Part(Rocket* r) { rocket = r; }
-		Part(Rocket* r, float t) { rocket = r; thrust = t; }
+		Part(Rocket* r) : engine::GameObject(r->getEngine()) { objName = "rocketPart";  rocket = r; }
+		Part(Rocket* r, float t) : engine::GameObject(r->getEngine()) { objName = "rocketPart"; rocket = r; thrust = t; }
 	};
 
 	/* Interface for controlling the rocket */
@@ -132,9 +134,8 @@ namespace intern {
 		void update();
 	};
 
-	class Planet {
+	class Planet : public engine::GameObject {
 	private:
-		engine::GameObject* obj;
 		engine::PolygonCollider* col;
 
 		engine::Game* game;
@@ -151,11 +152,11 @@ namespace intern {
 		Planet(engine::Game* engine, float r, float m, sf::Vector2f pos);
 		void setFixed(bool fixed) { isFixed = fixed; }
 
-		void setLandColor(sf::Color color) { landColor = color;	obj->getShapeComponent()->fillColor = color; }
+		void setLandColor(sf::Color color) { landColor = color;	getShapeComponent()->fillColor = color; }
 		sf::Color getLandColor() { return landColor; }
 		void setAtmosphereColor(sf::Color color) { atmosphereColor = color; }
 		sf::Color getAtmosphereColor() { return atmosphereColor; }
-		engine::GameObject* getObject() { return obj; }
+		engine::GameObject* getObject() { return dynamic_cast<engine::GameObject*>(this); }
 		float getMass() { return mass; }
 		float getRadius() { return radius; }
 

@@ -43,9 +43,8 @@ float engine::vmath::dotProduct(sf::Vector2f a, sf::Vector2f b) {
 	return a.x * b.x + a.y * b.y;
 }
 
-// Return a's distance along b of a projected on b
-float engine::vmath::projectVector(sf::Vector2f a, sf::Vector2f b) {
-	return dotProduct(a,normalizeVector(b));
+float engine::vmath::distanceAlongProjection(sf::Vector2f a, sf::Vector2f b){ 
+	return dotProduct(a, normalizeVector(b)); 
 }
 
 float engine::vmath::getDistance(sf::Vector2f v1, sf::Vector2f v2) {
@@ -82,13 +81,16 @@ sf::Vector2f engine::vmath::utof(sf::Vector2u v1) {
 };
 
 /* Default constructor and destructor for ShapeComponent */
-engine::ShapeComponent::ShapeComponent() {
+engine::ShapeComponent::ShapeComponent(std::vector<sf::Vector2f> polygon, GameObject *obj) {
 	type_id = 5;
+	parentObject = obj;
 
 	fillColor = sf::Color(255, 0, 255, 255);
 	outlineColor = sf::Color(0, 0, 0, 255);
 	outlineThickness = 0.0f;
 	rotationDegree = 0.0f;
+
+	vertices = polygon;
 
 	origin = sf::Vector2f(0.0f, 0.0f);
 }
@@ -100,10 +102,7 @@ engine::ShapeComponent::~ShapeComponent() {
 sf::ConvexShape engine::ShapeComponent::constructShape() {
 	sf::ConvexShape polygon;
 
-	if (isCircle) {
-		// frick circles
-		// all my homies use polygons
-	} else {
+	if (!isCircle) {
 		polygon.setPointCount(vertices.size());
 		for (int i = 0; i < vertices.size(); ++i) {
 			polygon.setPoint(i,vertices[i]);
@@ -121,11 +120,11 @@ sf::ConvexShape engine::ShapeComponent::constructShape() {
 }
 
 /* Default constructor for TransformComponent */
-engine::Transform::Transform() {
+engine::Transform::Transform(GameObject* obj) {
 	size = sf::Vector2f(1.0f, 1.0f);
 	position = sf::Vector2f(0.0f, 0.0f);
 	origin = sf::Vector2f(0.0f, 0.0f);
-
+	parentObject = obj;
 	rotationDegree = 0;
 }
 
@@ -157,33 +156,65 @@ engine::SpriteComponent::SpriteComponent::SpriteComponent() {
 
 
 /* GameObject constructor and destructor */
-engine::GameObject::GameObject() {
+engine::GameObject::GameObject(Game* game) {
+	engine = game;
 	id = 0;
-	ShapeComponent shape;
-	collider = nullptr;
+	shape = new ShapeComponent({ sf::Vector2f(0,0),sf::Vector2f(100,0),sf::Vector2f(100,100) },this);
+	transform = new Transform(this);
+	collider = new PolygonCollider({ sf::Vector2f(0,0),sf::Vector2f(100,0),sf::Vector2f(100,100) },this);
 }
 
 /* GameObject constructor and destructor */
-engine::GameObject::GameObject(Collider* col) {
+engine::GameObject::GameObject(std::vector<sf::Vector2f> polygon, Game* game) {
+	engine = game;
 	id = 0;
-	transform = Transform();
-	shape = ShapeComponent();
+	shape = new ShapeComponent(polygon, this);
+	transform = new Transform(this);
+	collider = new PolygonCollider(polygon, this);
+	if (polygon.size() == 1) {
+		shape->isCircle = true;
+		collider->setIsCircle(true);
+	}
+}
+
+/* GameObject constructor and destructor */
+engine::GameObject::GameObject(PolygonCollider* col, Game* game) {
+	engine = game;
+	id = 0;
+	transform = new Transform(this);
+	shape = new ShapeComponent({ sf::Vector2f(0,0),sf::Vector2f(100,0),sf::Vector2f(100,100) }, this);
+	collider = col;
+}
+
+/* GameObject constructor and destructor */
+engine::GameObject::GameObject(std::vector<sf::Vector2f> polygon, PolygonCollider* col, Game* game) {
+	engine = game;
+	id = 0;
+	transform = new Transform(this);
+	shape = new ShapeComponent(polygon, this);
 	collider = col;
 }
 
 
 engine::GameObject::~GameObject() {
-
+	delete collider;
+	delete shape;
+	delete transform;
 }
 
-void engine::GameObject::destroy(Game *engine) {
+void engine::GameObject::destroy() {
 	engine->deleteObject(this);
 	delete this;
 }
 
+void engine::GameObject::makeCircle(bool isCircle) {
+	shape->isCircle = isCircle;
+	collider->setIsCircle(isCircle);
+}
+
 /* Public class functions */
 
-engine::Collider* engine::GameObject::getCollider() {
+engine::PolygonCollider* engine::GameObject::getCollider() {
 	return collider;
 }
 
@@ -191,12 +222,25 @@ void engine::GameObject::updateCollider() {
 
 }
 
+void engine::GameObject::removeCollider() {
+	engine->removeFromRender(collider);
+	delete collider;
+	collider = nullptr;
+}
+
 /*
 	return ShapeComponent
 	Returns the shapeComponent
 */
 engine::ShapeComponent* engine::GameObject::getShapeComponent() {
-	return &shape;
+	return shape;
+}
+
+void engine::GameObject::removeShapeComponent() {
+	engine->removeFromRender(shape);
+	engine->removeFromUI(shape);
+	delete shape;
+	shape = nullptr;
 }
 
 /*
@@ -204,7 +248,7 @@ engine::ShapeComponent* engine::GameObject::getShapeComponent() {
 	Returns the Transform
 */
 engine::Transform* engine::GameObject::getTransform() {
-	return &transform;
+	return transform;
 }
 
 /*
@@ -221,7 +265,7 @@ void engine::Game::init() {
 	window = new sf::RenderWindow(videoMode, "A game", sf::Style::Titlebar | sf::Style::Close);
 	window->setFramerateLimit(120);
 
-	camera.transform = new Transform();
+	camera.transform = new Transform(nullptr); // this goes crazy
 	camera.transform->setPosition(sf::Vector2f(0, 0));
 	camera.transform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
 	debugLog("Instantiated Engine(game)", LOG_GREEN);
@@ -236,22 +280,51 @@ engine::Game::Game() {
 	init();
 }
 
-engine::GameObject* engine::Game::makeObject() {
-	GameObject* newObject = new GameObject();
+engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f> polygon, bool toUI) {
+	GameObject* newObject = new GameObject(polygon,this);
 	newObject->id = nextId;
 	nextId++;
 	gameObjects.push_back(newObject);
-	drawShape(newObject->getShapeComponent());
+	drawShape(newObject->getShapeComponent(),toUI);
+	newObject->getShapeComponent()->layer = layer;
+	drawCollider(newObject->getCollider());
+	newObject->getCollider()->layer = layer;
 	return newObject;
 }
 
-engine::GameObject* engine::Game::makeObject(Collider* col) {
-	GameObject* newObject = new GameObject(col);
+engine::GameObject* engine::Game::makeObject(int layer, float radius, bool toUI) {
+	GameObject* newObject = new GameObject({sf::Vector2f(0,radius)}, this);
 	newObject->id = nextId;
 	nextId++;
 	gameObjects.push_back(newObject);
-	drawShape(newObject->getShapeComponent());
+	drawShape(newObject->getShapeComponent(), toUI);
+	newObject->getShapeComponent()->layer = layer;
+	drawCollider(newObject->getCollider());
+	newObject->getCollider()->setIsCircle(true);
+	newObject->getShapeComponent()->isCircle = true;
+	newObject->getCollider()->layer = layer;
 	return newObject;
+}
+
+engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f> polygon, PolygonCollider* col, bool toUI) {
+	GameObject* newObject = new GameObject(polygon,col,this);
+	newObject->id = nextId;
+	nextId++;
+	gameObjects.push_back(newObject);
+	drawShape(newObject->getShapeComponent(),toUI);
+	newObject->getShapeComponent()->layer = layer;
+	drawCollider(newObject->getCollider());
+	newObject->getCollider()->layer = layer;
+	return newObject;
+}
+
+engine::GameObject* engine::Game::registerObject(GameObject *obj, bool toUI) {
+	obj->id = nextId;
+	nextId++;
+	gameObjects.push_back(obj);
+	drawShape(obj->getShapeComponent(), toUI);
+	drawCollider(obj->getCollider());
+	return obj;
 }
 
 engine::GameObject* engine::Game::getObject(objectRef targId) {
@@ -341,6 +414,10 @@ void engine::Game::update() {
 	// Update camera
 	sf::Vector2f offset = vmath::divideVector(getWindowSize(),2);
 	camera.transform->setPosition(vmath::subtractVectors(camera.focus->getTransform()->position,offset));
+
+	if (!paused) {
+		tick++;
+	}
 }
 
 /*
@@ -359,9 +436,17 @@ void engine::Game::render() {
 	std::vector<sf::ConvexShape> drawBuffer = {};
 
 	// Sort first by layer
+	sortRenderables(renderableObjects);
+	int index = 0;
 	for (Renderable* renderObj : renderableObjects) { // Convert each renderable object to a convex polygon that sfml can draw or directly draw it
+		if (renderObj == nullptr) {
+			renderableObjects.erase(renderableObjects.begin() + index);
+			continue;
+		}
 		switch (renderObj->type_id) { // Change type_id to its respective type
-		case 0: {
+		case 1:
+			break;
+		case 2: {
 			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
 
 			// Start, end is essentially a rect
@@ -388,8 +473,6 @@ void engine::Game::render() {
 			window->draw(drawLine); // Draw
 			break;
 		}
-		case 1:
-			break;
 		case 5: {
 			ShapeComponent shapeComp = *reinterpret_cast<ShapeComponent*>(renderObj);
 
@@ -400,46 +483,85 @@ void engine::Game::render() {
 			GameObject* obj = shapeComp.parentObject;
 			Transform transform = *obj->getTransform();
 
-			sf::ConvexShape polygon = shapeComp.constructShape();
-			polygon.move(transform.getPosition());
-			polygon.rotate(transform.getRotation());
-			polygon.scale(transform.getSize());
+			if (shapeComp.isCircle) {
+				sf::CircleShape circle;
+				circle.setPointCount(shapeComp.sides);
+				circle.setRadius(shapeComp.vertices[0].y);
 
-			window->draw(polygon);
+				circle.setOrigin(sf::Vector2f(shapeComp.vertices[0].y, shapeComp.vertices[0].y));
+				circle.move(transform.getPosition());
+				circle.rotate(transform.getRotation());
+				circle.scale(transform.getSize());
+
+				circle.setFillColor(shapeComp.fillColor);
+
+				circle.move(vmath::multiplyVector(camera.transform->getPosition(), -1));
+
+				window->draw(circle);
+			} else {
+				sf::ConvexShape polygon = shapeComp.constructShape();
+				polygon.move(transform.getPosition());
+				polygon.rotate(transform.getRotation());
+				polygon.scale(transform.getSize());
+
+				polygon.move(vmath::multiplyVector(camera.transform->getPosition(), -1));
+
+				window->draw(polygon);
+			}
 
 			break;
 		}
 		case 6: {
 			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
-			window->draw(text->drawableText); // Draw
+			if (text->cullThis) {
+				continue;
+			}
+			sf::Text drawText;
+			
+			drawText.setCharacterSize(text->charSize);
+			drawText.setString(text->textString);
+			drawText.setFont(*text->font);
+			drawText.setFillColor(text->color);
+			drawText.move(text->position);
+			drawText.setOrigin(text->origin);
+
+			window->draw(drawText); // Draw
 			break;
 		}
 		default:
 			continue;
 		}
+		index++;
 	}
 
+	sortRenderables(uiRenderableObjects);
+	index = 0;
 	for (Renderable* renderObj : uiRenderableObjects) { // Draw UI on top
+		if (renderObj == nullptr) {
+			uiRenderableObjects.erase(uiRenderableObjects.begin() + index);
+			index--;
+			continue;
+		}
 		switch (renderObj->type_id) { // Change type_id to its respective type
-		case 0: {
+		case 1:
+			break;
+		case 2: {
 			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
 
 			// Start, end is essentially a rect
 			sf::Vector2f start = line->start;
 			sf::Vector2f end = line->end;
-			start.x -= line->thickness;
-			start.y -= line->thickness;
-			end.x += line->thickness;
-			end.y += line->thickness;
 
 			// Convert the line to a rectangle for drawing
-			sf::Vector2f lineDir = sf::Vector2f(vmath::getDistance(start, end), line->magnitude);
+			sf::Vector2f lineDir = sf::Vector2f(vmath::getDistance(start, end), 1.0f);
 			sf::RectangleShape drawLine(lineDir);
+
+			drawLine.setPosition(line->start);
+			drawLine.setScale(line->thickness,line->magnitude);
+			drawLine.move(-0.5*line->thickness,-0.5*line->magnitude);
 
 			drawLine.setFillColor(line->color); // Color
 
-			// Make position relative to the camera
-			drawLine.setPosition(vmath::subtractVectors(line->start, cameraTransform->getPosition()));
 			lineDir = vmath::subtractVectors(line->end, line->start);
 
 			// Rotate to proper position
@@ -448,10 +570,6 @@ void engine::Game::render() {
 			window->draw(drawLine); // Draw
 			break;
 		}
-		case 1:
-			break;
-		case 2:
-			break;
 		case 3:
 			break;
 		case 4: {
@@ -461,20 +579,45 @@ void engine::Game::render() {
 
 			PolygonCollider* col = reinterpret_cast<PolygonCollider*>(renderObj);
 			std::vector<sf::Vector2f> polygon = col->getPolygon();
-
-			sf::ConvexShape shape;
-			shape.setPointCount(polygon.size());
-			
-			for (int i = 0; i < polygon.size(); ++i) {
-				shape.setPoint(i, polygon[i]);
-			}
-
 			Transform transform = *col->getParent()->getTransform();
-			shape.move(transform.getPosition());
-			shape.rotate(transform.getRotation());
-			shape.scale(transform.getSize());
 
-			window->draw(shape);
+			if (col->shapeIsCircle()) {
+				sf::CircleShape circle;
+				circle.setPointCount(col->getPoints());
+				circle.setRadius(col->getPolygon()[0].y);
+
+				circle.setOrigin(sf::Vector2f(col->getPolygon()[0].y, col->getPolygon()[0].y));
+				circle.move(transform.getPosition());
+				circle.rotate(transform.getRotation());
+				circle.scale(transform.getSize());
+
+				circle.setFillColor(sf::Color(0, 0, 0, 0));
+				circle.setOutlineColor(sf::Color(0, 255, 0));
+				circle.setOutlineThickness(5);
+
+				circle.move(vmath::multiplyVector(camera.transform->getPosition(), -1));
+
+				window->draw(circle);
+			} else {
+				sf::ConvexShape shape;
+				shape.setPointCount(polygon.size());
+
+				for (int i = 0; i < polygon.size(); ++i) {
+					shape.setPoint(i, polygon[i]);
+				}
+
+				shape.move(transform.getPosition());
+				shape.rotate(transform.getRotation());
+				shape.scale(transform.getSize());
+
+				shape.setFillColor(sf::Color(0, 0, 0, 0));
+				shape.setOutlineColor(sf::Color(0, 255, 0));
+				shape.setOutlineThickness(5);
+
+				shape.move(vmath::multiplyVector(camera.transform->getPosition(), -1));
+
+				window->draw(shape);
+			}
 
 			break;
 		}
@@ -488,49 +631,92 @@ void engine::Game::render() {
 			GameObject* obj = shapeComp.parentObject;
 			Transform transform = *obj->getTransform();
 
-			sf::ConvexShape polygon = shapeComp.constructShape();
-			polygon.move(transform.getPosition());
-			polygon.rotate(transform.getRotation());
-			polygon.scale(transform.getSize());
+			if (shapeComp.isCircle) {
+				sf::CircleShape circle;
+				circle.setPointCount(shapeComp.sides);
+				circle.setRadius(shapeComp.vertices[0].y);
+				
+				circle.setOrigin(sf::Vector2f(shapeComp.vertices[0].y, shapeComp.vertices[0].y));
+				circle.move(transform.getPosition());
+				circle.rotate(transform.getRotation());
+				circle.scale(transform.getSize());
 
-			window->draw(polygon);
+				window->draw(circle);
+			} else {
+				sf::ConvexShape polygon = shapeComp.constructShape();
+				polygon.move(transform.getPosition());
+				polygon.rotate(transform.getRotation());
+				polygon.scale(transform.getSize());
+
+				window->draw(polygon);
+			}
 			break;
 		}
 		case 6: {
 			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
-			window->draw(text->drawableText); // Draw
+			if (text->cullThis) {
+				continue;
+			}
+			sf::Text drawText;
+			drawText.setCharacterSize(text->charSize);
+			drawText.setString(text->textString);
+			drawText.setFont(*text->font);
+			drawText.setFillColor(text->color);
+			drawText.move(text->position);
+			drawText.setOrigin(text->origin);
+
+			window->draw(drawText); // Draw
 			break;
 		}
 		default:
 			continue;
 		}
+		index++;
 	}
 
 	// Write changes to window
 	window->display();
 }
 
-void *engine::Game::drawText(sf::Text *text) {
+std::vector<engine::Renderable*> engine::Game::sortRenderables(std::vector<Renderable*> renders) {
+	std::sort(renders.begin(), renders.end(), std::greater<Renderable*>());
+	return renders;
+}
+
+void *engine::Game::drawText(Text* text, bool isUI) {
+	if (text == nullptr) {
+		return nullptr;
+	}
 	Renderable* r = dynamic_cast<Renderable*>(text);
-	uiRenderableObjects.push_back(r);
+	(isUI) ? uiRenderableObjects.push_back(r) : renderableObjects.push_back(r);
 	return static_cast<void*>(r);
 }
 
-void *engine::Game::drawText(Text* text) {
-	Renderable* r = dynamic_cast<Renderable*>(&text->drawableText);
-	uiRenderableObjects.push_back(r);
-	return static_cast<void*>(r);
-}
-
-void* engine::Game::drawLine(Line* line) {
+void* engine::Game::drawLine(Line* line, bool isUI) {
+	if (line == nullptr) {
+		return nullptr;
+	}
 	Renderable* r = dynamic_cast<Renderable*>(line);
-	uiRenderableObjects.push_back(r);
+	(isUI) ? uiRenderableObjects.push_back(r) : renderableObjects.push_back(r);
 	return static_cast<void*>(r);
 }
 
-void* engine::Game::drawShape(ShapeComponent *shape) {
+void* engine::Game::drawShape(ShapeComponent *shape, bool isUI) {
+	if (shape == nullptr) {
+		return nullptr;
+	}
 	Renderable* r = dynamic_cast<Renderable*>(shape);
-	renderableObjects.push_back(r);
+	(isUI) ? uiRenderableObjects.push_back(r) : renderableObjects.push_back(r);
+	return static_cast<void*>(r);
+}
+
+
+void* engine::Game::drawCollider(PolygonCollider* col) {
+	if (col == nullptr) {
+		return nullptr;
+	}
+	Renderable* r = dynamic_cast<Renderable*>(col);
+	uiRenderableObjects.push_back(r);
 	return static_cast<void*>(r);
 }
 
@@ -559,7 +745,7 @@ bool engine::Game::removeFromUI(void* removePtr) {
 }
 
 void engine::Game::debugLog(std::string str, std::string colorStr) {
-	std::cout << getElapsedTime() << "|" << colorStr << str << LOG_RESET <<  "\n";
+	std::cout << "tick:" << tick << "|" << colorStr << str << LOG_RESET << "\n";
 }
 
 void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
@@ -569,17 +755,36 @@ void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
 	return static_cast<void*>(r);
 }
 
-engine::PolygonCollider::PolygonCollider() {
+engine::PolygonCollider::PolygonCollider(std::vector<sf::Vector2f> polygon, GameObject* obj) {
+	vertices = polygon;
 	type_id = 4;
 	isCircle = false;
+	parentObject = obj;
 }
 
-engine::PolygonCollider::PolygonCollider(bool makeCircle) {
+engine::PolygonCollider::PolygonCollider(Rect r, GameObject* obj) {
+	type_id = 4;
+	isCircle = false;
+	vertices.push_back(sf::Vector2f(r.left,r.top));
+	vertices.push_back(sf::Vector2f(r.right, r.top));
+	vertices.push_back(sf::Vector2f(r.right, r.bottom));
+	vertices.push_back(sf::Vector2f(r.left,r.bottom));
+	parentObject = obj;
+}
+
+engine::PolygonCollider::PolygonCollider(bool makeCircle, float radius, GameObject* obj) {
 	type_id = 4;
 	isCircle = makeCircle;
+	parentObject = obj;
+	vertices.push_back(sf::Vector2f(0,radius));
 }
 
-engine::CollisionManager::CollisionManager() {
+// Assume that a2 >= a1 and b2 >= b1
+bool engine::collisions::overlap1D(float a1, float a2, float b1, float b2) {
+	return std::min(a2, b2) - std::max(a1, b1) == 0;
+}
+
+engine::collisions::CollisionManager::CollisionManager() {
 
 }
 
@@ -587,8 +792,18 @@ sf::Color engine::changeAlpha(sf::Color color, int alpha) {
 	return sf::Color(color.r,color.g,color.b,alpha);
 }
 
+std::vector<sf::Vector2f> engine::rectToPolygon(Rect r) {
+	return { sf::Vector2f(r.left,r.top), sf::Vector2f(r.right,r.top), sf::Vector2f(r.right,r.bottom), sf::Vector2f(r.left,r.bottom) };
+}
+engine::Line::Line() {
+	type_id = 2;
+	start = sf::Vector2f(0.0f, 0.0f);
+	end = sf::Vector2f(0.0f, 0.0f);
+	color = sf::Color(0, 255, 0);
+}
+
 engine::Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
-	type_id = 0;
+	type_id = 2;
 	start = begin;
 	end = stop;
 	this->color = color;
@@ -596,8 +811,8 @@ engine::Line::Line(sf::Vector2f begin, sf::Vector2f stop, sf::Color color) {
 
 engine::Particle::Particle(Game* engine, sf::Vector2f v) {
 	type_id = 1;
-	transform = new Transform();
-	shape = new ShapeComponent();
+	//transform = new Transform();
+	//shape = new ShapeComponent();
 	game = engine;
 	velocity = v;
 }

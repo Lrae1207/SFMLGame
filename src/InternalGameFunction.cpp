@@ -46,24 +46,43 @@ void intern::PlayerControl::update() {
 }
 
 void intern::Rocket::applyControlRotation(float force) {
-	parentObject->getTransform()->addRotation(force);
+	getTransform()->addRotation(force);
 }
 
 /* Create the rocket */
-intern::Rocket::Rocket(engine::Game *engine) {
+intern::Rocket::Rocket(engine::Game* engine) : engine::GameObject({},engine) {
+	objName = "rocket";
+	setVisibility(false);
+
 	game = engine;
 	manager = static_cast<GameManager*>(game->getManager());
 
-	parentObject = game->makeObject();
-	parentObject->setVisibility(false);
+	setVisibility(false);
 
-	game->setCamFocus(parentObject);
+	game->setCamFocus(dynamic_cast<GameObject*>(this));
 
-	engine::Transform *t = parentObject->getTransform();
-	t->setPosition(sf::Vector2f(400, 300));
+	getTransform()->setPosition(sf::Vector2f(400, 300));
 
 	totalThrust = 0;
 	totalWeight = 0;
+
+	sf::Vector2f center = game->getWindowSize() / 2.0f;
+
+	gravityLine = new engine::Line();
+	velocityLine = new engine::Line();
+
+	gravityLine->start = center;
+	gravityLine->thickness = 2.0f;
+	gravityLine->color = C_RED;
+
+	velocityLine->start = center;
+	velocityLine->thickness = 2.0f;
+	velocityLine->color = C_GREEN;
+
+	game->drawLine(velocityLine,true);
+	game->drawLine(gravityLine,true);
+
+	game->registerObject(getObject(), false);
 }
 
 /* Update the collider and position of the rocket */
@@ -78,23 +97,24 @@ void intern::Rocket::update() {
 	sf::Vector2f newForce = sf::Vector2f(0.0f,0.0f);
 
 	for (Part* p : parts) {
+		GameObject* obj = dynamic_cast<GameObject*>(p);
 		if (p->durability <= 0) { // Object is destroyed
-			game->deleteObject(p->object);
-			p->object->destroy(game);
+			game->deleteObject(obj);
+			obj->destroy();
 			continue;
 		}
 
-		engine::Transform rocketTransform = *parentObject->getTransform();
+		engine::Transform rocketTransform = *getTransform();
 
 		/* Update the objects */
-		engine::Transform *t = p->object->getTransform();
-		engine::ShapeComponent* s = p->object->getShapeComponent();
+		engine::Transform *t = obj->getTransform();
+		engine::ShapeComponent* s = obj->getShapeComponent();
 		t->setPosition(engine::vmath::addVectors(rocketTransform.getPosition(),p->offset));
 		t->setOrigin(rocketTransform.position);
 		t->setRotation(rocketTransform.getRotation());
-		p->object->updateCollider();
+		obj->updateCollider();
 
-		p->object->updateCollider();
+		obj->updateCollider();
 
 		/* Calculate the average velocity and weight */
 		totalThrust += p->thrust;
@@ -103,12 +123,14 @@ void intern::Rocket::update() {
 	}
 
 	// Rotate newForce
-	newForce = engine::vmath::rotateByDegrees(newForce, parentObject->getTransform()->getRotation());
+	newForce = engine::vmath::rotateByDegrees(newForce, getTransform()->getRotation());
+
 	/*
 			F * t
 		v = -----
 			  m
 	*/
+
 	if (isThrust) {
 		totalWeight += 0.0001; // Prevents division by 0
 		sf::Vector2f v = engine::vmath::multiplyVector(newForce, thrustScaler * game->getTimescale() / totalWeight);
@@ -116,20 +138,22 @@ void intern::Rocket::update() {
 	}
 
 	// Gravity
-	Planet* closestPlanet = manager->getNearestPlanet(parentObject->getTransform()->getPosition());
+	Planet* closestPlanet = manager->getNearestPlanet(getTransform()->getPosition());
+	if (closestPlanet == nullptr) {
+		return;
+	}
 
-	sf::Vector2f rocketPos = parentObject->getTransform()->getPosition();
+	sf::Vector2f rocketPos = getTransform()->getPosition();
 	sf::Vector2f planetPos = closestPlanet->getObject()->getTransform()->getPosition();
-	
-	sf::Vector2f gravityDirection = engine::vmath::normalizeVector(engine::vmath::subtractVectors(planetPos,rocketPos));
-	float gravityMagnitude = phys::calculateGravityAccel(rocketPos.x, rocketPos.y,planetPos.x,planetPos.y,closestPlanet->getMass());
-
-	game->debugLine(rocketPos, engine::vmath::addVectors(gravityDirection,rocketPos));
-
-	gravityDirection = engine::vmath::multiplyVector(gravityDirection,gravityMagnitude*game->getTimescale());
-	velocity = engine::vmath::addVectors(velocity,gravityDirection);
-
 	float distFromPlanet = phys::distance2D(planetPos.x, planetPos.y, rocketPos.x, rocketPos.y);
+	float altitude = distFromPlanet - closestPlanet->getRadius();
+
+	sf::Vector2f gravityDirection = engine::vmath::normalizeVector(engine::vmath::subtractVectors(planetPos, rocketPos));
+	float gravityMagnitude = phys::calculateGravityAccel(rocketPos.x, rocketPos.y, planetPos.x, planetPos.y, closestPlanet->getMass());
+
+	if (altitude > 0) {
+		velocity = engine::vmath::addVectors(velocity, engine::vmath::multiplyVector(gravityDirection, gravityMagnitude * game->getTimescale()));
+	}
 
 	float drag = pow(1 - (1 / (distFromPlanet+0.000000001)),3);
 	velocity = engine::vmath::multiplyVector(velocity,drag);
@@ -140,14 +164,19 @@ void intern::Rocket::update() {
 		game->setBackgroundBrightness(powf(1.00001, -5*(distFromPlanet-closestPlanet->getRadius())));
 	}
 
-	parentObject->getTransform()->addToPosition(velocity);
+	getTransform()->addToPosition(velocity);
 
+	// Debug logging
 	if (dTime > 500000000) { // 2 second(s)
-		game->debugLog("rocket::transform::position : (" + std::to_string(parentObject->getTransform()->getPosition().x) + "," + std::to_string(parentObject->getTransform()->getPosition().y) + ")", LOG_YELLOW);
+		game->debugLog("rocket::transform::position : (" + std::to_string(getTransform()->getPosition().x) + "," + std::to_string(getTransform()->getPosition().y) + ")", LOG_YELLOW);
 		game->debugLog("rocket::velocity : (" + std::to_string(velocity.x) + "," + std::to_string(velocity.y) + ")", LOG_YELLOW);
-		game->debugLog("rocket::altitude: " + std::to_string(distFromPlanet-closestPlanet->getRadius()), LOG_YELLOW);
+		game->debugLog("rocket::altitude: " + std::to_string(altitude), LOG_YELLOW);
 		dTime = 0;
 	}
+
+	// Info lines
+	velocityLine->end = velocityLine->start + engine::vmath::normalizeVector(velocity);
+	gravityLine->end = gravityLine->start + gravityDirection;
 }
 
 /* Create and register a new part with the given fields */
@@ -155,7 +184,19 @@ intern::Part* intern::Rocket::makePart(float thrust, float weight, engine::GameO
 	Part* newPart = new Part(this);
 	newPart->thrust = thrust;
 	newPart->weight = weight;
-	newPart->object = game->makeObject();
+	engine::Rect shape;
+	shape.top = -50;
+	shape.bottom = 50;
+	shape.left = -25;
+	shape.right = 25;
+	newPart->objName = "rocketPart";
+
+	std::vector<sf::Vector2f> newPolygon = engine::rectToPolygon(shape);
+	GameObject* partObj = dynamic_cast<GameObject*>(newPart);
+	partObj->getCollider()->setPolygon(newPolygon);
+	partObj->getShapeComponent()->vertices = newPolygon;
+	game->registerObject(partObj, false);
+
 	if (thrust != 0) {
 		newPart->particleManager = new RocketParticleManager(game,1.0f,2.0f,1.0f,0.9f,newPart);
 		newPart->particleManager->setStartPosition(newPart->offset);
@@ -170,7 +211,9 @@ intern::Part* intern::Rocket::makePart(float thrust, float weight, engine::GameO
 intern::Part* intern::Rocket::instantiatePart(PartPrefab prefab) {
 	Part *newPart = new Part(this);
 	newPart->thrust = prefab.thrust;
-	newPart->object = game->makeObject();
+	GameObject* obj = dynamic_cast<GameObject*>(newPart);
+	game->registerObject(obj, false);
+	newPart->objName = "rocketPart";
 	newPart->durability = prefab.durability;
 	newPart->weight = prefab.weight;
 
@@ -185,24 +228,28 @@ void intern::Rocket::registerPart(Part* p) {
 
 /* Create the pause menu and its objects */
 intern::PauseMenu::PauseMenu(engine::Game* engine) {
+
 	game = engine;
-	background = game->makeObject();
+	engine::Rect backgroundShape;
 
 	sf::Vector2f windowSize = game->getWindowSize();
+	sf::Vector2f margin;
+	margin.x = 300.0f;
+	margin.y = 200.0f;
+
+	backgroundShape.top = margin.y;
+	backgroundShape.bottom = windowSize.y - margin.y;
+	backgroundShape.left = margin.x;
+	backgroundShape.right = windowSize.x - margin.x;
+	background = game->makeObject(1,engine::rectToPolygon(backgroundShape),true);
+	background->objName = "pauseBackground";
+
 	background->setVisibility(false);
 	background->getShapeComponent()->fillColor = engine::changeAlpha(C_DGRAY1,200);
 
-	sf::Vector2f margin;
-	margin.x = 450.0f;
-	margin.y = 90.0f;
-
-	background->getShapeComponent()->layer = 0;
-	background->getTransform()->setPosition(sf::Vector2f(windowSize.x/2,windowSize.y/2));
-
-	background->getShapeComponent()->vertices.push_back(sf::Vector2f(margin.x,margin.y));
-	background->getShapeComponent()->vertices.push_back(sf::Vector2f(windowSize.x-margin.x, margin.y));
-	background->getShapeComponent()->vertices.push_back(sf::Vector2f(windowSize.x-margin.x, windowSize.y-margin.y));
-	background->getShapeComponent()->vertices.push_back(sf::Vector2f(margin.x, windowSize.y-margin.y));
+	background->getTransform()->setPosition(sf::Vector2f(0,0));
+	background->removeCollider();
+	game->registerObject(background,true);
 
 	if (pausedFont.loadFromFile("Raleway-Regular.ttf")) {
 		game->debugLog("Loaded \"Raleway-Regular.ttf\"\n", LOG_GREEN);
@@ -210,40 +257,47 @@ intern::PauseMenu::PauseMenu(engine::Game* engine) {
 		game->debugLog("Failed load \"Raleway-Regular.ttf\"\n", LOG_RED);
 	}
 
-	pausedText.setCharacterSize(24);
-	pausedText.setString("PAUSED");
-	pausedText.setFont(pausedFont);
+	sf::Text temp;
+	temp.setFont(pausedFont);
+	temp.setCharacterSize(24);
+	temp.setString("Paused");
 
-	sf::Vector2f pos = engine::vmath::divideVector(windowSize, 2);
-	pos.x = pos.x - (pausedText.getLocalBounds().width / 2);
-	pos.y = 50;
-	pausedText.setPosition(pos);
+	sf::FloatRect textRect = temp.getLocalBounds();
+	sf::Vector2f localOffset = sf::Vector2f(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+	pausedMessage = new engine::Text(sf::Color(255, 0, 0), sf::Vector2f(windowSize.x / 2, margin.y + 15), localOffset, "Paused", 24, &pausedFont);
+
+	pausedMessage->layer = 0;
+	pausedMessage->cullThis = true;
+	game->drawText(pausedMessage, true);
 }
 
 /* Show if the game is paused; Hide otherwise */
 void intern::PauseMenu::update() {
-	if (game->isPaused()) { // Show menu objects
-		background->setVisibility(true);
-		game->drawText(&pausedText);
-;	} else {
-		background->setVisibility(false);
+ 	if (game->isPaused()) { // Show menu objects
+		background->getShapeComponent()->isVisible = (true);
+		pausedMessage->cullThis = false;
+	} else {
+		background->getShapeComponent()->isVisible = (false);
+		pausedMessage->cullThis = true;
 	}
 }
 
 /* Create a planet with the given fields */
-intern::Planet::Planet(engine::Game* engine, float r, float m, sf::Vector2f pos) {
+intern::Planet::Planet(engine::Game* engine, float r, float m, sf::Vector2f pos) : engine::GameObject({sf::Vector2f(0,r)}, engine) {
 	game = engine;
 	radius = r;
 	mass = m;
 
-	col = new engine::PolygonCollider(true);
-	col->setPoints(1000);
+	makeCircle(true);
 
-	obj = game->makeObject(col);
-	obj->getShapeComponent()->vertices = {};
-	obj->getShapeComponent()->vertices.push_back(sf::Vector2f(0.0f,0.0f-r));
+	col = getCollider();
+	getShapeComponent()->sides = 1000;
 
-	obj->getTransform()->setPosition(pos);
+	getTransform()->setPosition(pos);
+
+	col->setParent(getObject());
+	game->registerObject(getObject(), false);
+	objName = "planet";
 }
 
 /* Update the planet's collider and other fields */
