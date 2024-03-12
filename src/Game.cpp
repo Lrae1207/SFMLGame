@@ -126,6 +126,9 @@ engine::Transform::Transform(GameObject* obj) {
 	origin = sf::Vector2f(0.0f, 0.0f);
 	parentObject = obj;
 	rotationDegree = 0;
+	if (col != nullptr) {
+		col = obj->getCollider();
+	}
 }
 
 /* Sick one liners*/
@@ -268,6 +271,8 @@ void engine::Game::init() {
 	camera.transform = new Transform(nullptr); // this goes crazy
 	camera.transform->setPosition(sf::Vector2f(0, 0));
 	camera.transform->setSize(sf::Vector2f(window->getSize().x, window->getSize().y));
+
+	collisionManager = new collisions::CollisionManager();
 	debugLog("Instantiated Engine(game)", LOG_GREEN);
 }
 
@@ -287,7 +292,7 @@ engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f
 	gameObjects.push_back(newObject);
 	drawShape(newObject->getShapeComponent(),toUI);
 	newObject->getShapeComponent()->layer = layer;
-	drawCollider(newObject->getCollider());
+	drawCollider(newObject->getCollider(), true);
 	newObject->getCollider()->layer = layer;
 	return newObject;
 }
@@ -299,7 +304,7 @@ engine::GameObject* engine::Game::makeObject(int layer, float radius, bool toUI)
 	gameObjects.push_back(newObject);
 	drawShape(newObject->getShapeComponent(), toUI);
 	newObject->getShapeComponent()->layer = layer;
-	drawCollider(newObject->getCollider());
+	drawCollider(newObject->getCollider(), true);
 	newObject->getCollider()->setIsCircle(true);
 	newObject->getShapeComponent()->isCircle = true;
 	newObject->getCollider()->layer = layer;
@@ -313,7 +318,7 @@ engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f
 	gameObjects.push_back(newObject);
 	drawShape(newObject->getShapeComponent(),toUI);
 	newObject->getShapeComponent()->layer = layer;
-	drawCollider(newObject->getCollider());
+	drawCollider(newObject->getCollider(), true);
 	newObject->getCollider()->layer = layer;
 	return newObject;
 }
@@ -323,11 +328,11 @@ engine::GameObject* engine::Game::registerObject(GameObject *obj, bool toUI) {
 	nextId++;
 	gameObjects.push_back(obj);
 	drawShape(obj->getShapeComponent(), toUI);
-	drawCollider(obj->getCollider());
+	drawCollider(obj->getCollider(),true);
 	return obj;
 }
 
-engine::GameObject* engine::Game::getObject(objectRef targId) {
+engine::GameObject* engine::Game::getObject(unsigned int targId) {
 	for (GameObject* obj : gameObjects) {
 		if (obj->id == targId) {
 			return obj;
@@ -348,7 +353,7 @@ bool engine::Game::deleteObject(GameObject* delObj) {
 	return false;
 }
 
-bool engine::Game::deleteObject(objectRef targId) {
+bool engine::Game::deleteObject(unsigned int targId) {
 	return deleteObject(getObject(targId));
 }
 
@@ -412,11 +417,62 @@ void engine::Game::update() {
 	}
 
 	// Update camera
-	sf::Vector2f offset = vmath::divideVector(getWindowSize(),2);
-	camera.transform->setPosition(vmath::subtractVectors(camera.focus->getTransform()->position,offset));
+	sf::Vector2f offset = getWindowSize()/2.0f;
+	if (camera.focus != nullptr) {
+		camera.transform->setPosition(vmath::subtractVectors(camera.focus->getTransform()->position, offset));
+	}
+
+
+	/* Collision handling */
+	//collisionManager->handleCollisions(colliders);
 
 	if (!paused) {
+		updateObjects();
 		tick++;
+	}
+}
+
+/*
+	Update each individual object
+*/
+void engine::Game::updateObjects() {
+	for (GameObject* obj : gameObjects) {
+
+	}
+}
+
+void engine::Game::resetScene() {
+	delete manager;
+	delete collisionManager;
+	for (EngineComponent* e : engineComponents) { delete e; }
+	for (PolygonCollider* c : colliders) { delete c; }
+	for (Renderable* r : renderableObjects) { dynamicDeleteRenderable(r); }
+	for (Renderable* r : uiRenderableObjects) { dynamicDeleteRenderable(r); }
+	for (GameObject* obj : gameObjects) { obj->destroy(); delete obj; }
+
+	delete window;
+	init();
+}
+
+void engine::Game::dynamicDeleteRenderable(Renderable* r) {
+	switch (r->type_id) {
+		case 1:
+			delete (reinterpret_cast<Particle*>(r));
+			break;
+		case 2:
+			delete (reinterpret_cast<Line*>(r));
+			break;
+		case 3:
+			break;
+		case 4:
+			delete (reinterpret_cast<PolygonCollider*>(r));
+			break;
+		case 5:
+			delete (reinterpret_cast<ShapeComponent*>(r));
+			break;
+		case 6:
+			delete (reinterpret_cast<Text*>(r));
+			break;
 	}
 }
 
@@ -553,19 +609,18 @@ void engine::Game::render() {
 			sf::Vector2f end = line->end;
 
 			// Convert the line to a rectangle for drawing
-			sf::Vector2f lineDir = sf::Vector2f(vmath::getDistance(start, end), 1.0f);
+			sf::Vector2f lineDir = sf::Vector2f(line->magnitude, line->thickness);
 			sf::RectangleShape drawLine(lineDir);
 
+			drawLine.setOrigin(0.0f,line->thickness * 0.5f);
 			drawLine.setPosition(line->start);
-			drawLine.setScale(line->thickness,line->magnitude);
-			drawLine.move(-0.5*line->thickness,-0.5*line->magnitude);
 
 			drawLine.setFillColor(line->color); // Color
 
 			lineDir = vmath::subtractVectors(line->end, line->start);
 
 			// Rotate to proper position
-			drawLine.rotate(phys::RADTODEG * atan2f(lineDir.y, lineDir.x) - 90.0f);
+			drawLine.rotate(phys::RADTODEG * atan2f(lineDir.y, lineDir.x));
 
 			window->draw(drawLine); // Draw
 			break;
@@ -711,13 +766,32 @@ void* engine::Game::drawShape(ShapeComponent *shape, bool isUI) {
 }
 
 
-void* engine::Game::drawCollider(PolygonCollider* col) {
+void* engine::Game::drawCollider(PolygonCollider* col, bool registerThisCollider) {
 	if (col == nullptr) {
 		return nullptr;
+	}
+	if (registerThisCollider) {
+		registerCollider(col);
 	}
 	Renderable* r = dynamic_cast<Renderable*>(col);
 	uiRenderableObjects.push_back(r);
 	return static_cast<void*>(r);
+}
+
+void engine::Game::registerCollider(PolygonCollider* col) {
+	colliders.push_back(col);
+}
+
+bool engine::Game::removeCollider(PolygonCollider* col) {
+	int i = 0;
+	for (PolygonCollider* c : colliders) {
+		if (c == col) {
+			renderableObjects.erase(renderableObjects.begin() + i);
+			return true;
+		}
+		i++;
+	}
+	return false;
 }
 
 bool engine::Game::removeFromRender(void* removePtr) {
@@ -755,6 +829,20 @@ void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
 	return static_cast<void*>(r);
 }
 
+bool engine::Game::loadScene(std::string path) {
+	boost::property_tree::ptree pt;
+	boost::property_tree::ini_parser::read_ini(path, pt);
+	std::cout << pt.get<std::string>("Section1.Value1") << std::endl;
+	std::cout << pt.get<std::string>("Section1.Value2") << std::endl;
+}
+
+bool engine::Game::loadObject(std::string path) {
+	boost::property_tree::ptree pt;
+	boost::property_tree::ini_parser::read_ini(path, pt);
+	std::cout << pt.get<std::string>("Section1.Value1") << std::endl;
+	std::cout << pt.get<std::string>("Section1.Value2") << std::endl;
+}
+
 engine::PolygonCollider::PolygonCollider(std::vector<sf::Vector2f> polygon, GameObject* obj) {
 	vertices = polygon;
 	type_id = 4;
@@ -779,14 +867,155 @@ engine::PolygonCollider::PolygonCollider(bool makeCircle, float radius, GameObje
 	vertices.push_back(sf::Vector2f(0,radius));
 }
 
+void engine::PolygonCollider::updateExtrusion() {
+	Rect newExtrusion;
+	newExtrusion.top = 0;
+	newExtrusion.bottom = 0;
+	newExtrusion.left = 0;
+	newExtrusion.right = 0;
+
+	if (vertices.size() == 0) {
+		return;
+	}
+
+	for (sf::Vector2f v : vertices) {
+		if (v.x < newExtrusion.left) {
+			newExtrusion.left = v.x;
+		}
+		if (v.x > newExtrusion.right) {
+			newExtrusion.right = v.x;
+		}
+		if (v.x < newExtrusion.top) {
+			newExtrusion.top = v.y;
+		}
+		if (v.x > newExtrusion.bottom) {
+			newExtrusion.bottom = v.y;
+		}
+	}
+
+	extrusion = newExtrusion;
+}
+
 // Assume that a2 >= a1 and b2 >= b1
 bool engine::collisions::overlap1D(float a1, float a2, float b1, float b2) {
 	return std::min(a2, b2) - std::max(a1, b1) == 0;
 }
 
+engine::collisions::ColliderBound::ColliderBound(PolygonCollider *collider, float value) {
+	coord = value;
+	col = collider;
+}
+
+/* Collisions */
+
+std::vector<engine::collisions::CollisionPair*> engine::collisions::broadSortAndSweep(std::vector<PolygonCollider*> colliders) {
+	std::vector<CollisionPair*> pairs = {};
+	
+	std::vector<ColliderBound> xorderedBounds = {};
+	std::vector<ColliderBound> yorderedBounds = {};
+
+	/* Generate lists of bounds along x and y axis */
+	for (PolygonCollider* c : colliders) {
+		c->updateExtrusion();
+		xorderedBounds.push_back(ColliderBound(c, c->extrusion.right));
+		xorderedBounds.push_back(ColliderBound(c, c->extrusion.left));
+		yorderedBounds.push_back(ColliderBound(c, c->extrusion.top));
+		yorderedBounds.push_back(ColliderBound(c, c->extrusion.bottom));
+	}
+
+	std::sort(xorderedBounds.begin(), xorderedBounds.end());
+	std::sort(yorderedBounds.begin(), yorderedBounds.end());
+	std::vector<ColliderBound> unclosedBounds = {};
+
+	// X coordinate
+	for (ColliderBound c : xorderedBounds) {
+		int i = 0;
+		while (i < unclosedBounds.size() && c.col != unclosedBounds[i].col) {
+			i++;
+		}
+
+		if (i == unclosedBounds.size()) { // Pair not found
+			for (ColliderBound bound : xorderedBounds) {
+				CollisionPair newPair;
+				newPair.c1 = c.col;
+				newPair.c2 = unclosedBounds[i].col;
+				pairs.push_back(&newPair);
+			}
+			unclosedBounds.push_back(c);
+		} else { // Pair found
+			unclosedBounds.erase(unclosedBounds.begin() + i);
+		}
+	}
+	
+	unclosedBounds = {};
+
+	// Y coordinate
+	for (ColliderBound c : yorderedBounds) {
+		int i = 0;
+		while (i < unclosedBounds.size() && c.col != unclosedBounds[i].col) {
+			i++;
+		}
+
+		if (i == unclosedBounds.size()) { // Pair not found
+			for (ColliderBound bound : yorderedBounds) {
+				CollisionPair newPair;
+				newPair.c1 = c.col;
+				newPair.c2 = unclosedBounds[i].col;
+				pairs.push_back(&newPair);
+			}
+			unclosedBounds.push_back(c);
+		} else { // Pair found
+			unclosedBounds.erase(unclosedBounds.begin() + i);
+		}
+	}
+
+	return pairs;
+}
+
+std::vector<engine::collisions::CollisionPair*> engine::collisions::narrowSAT(std::vector<CollisionPair*> colliders) {
+	// work here
+}
+
 engine::collisions::CollisionManager::CollisionManager() {
 
 }
+
+std::vector<engine::collisions::CollisionPair*> engine::collisions::CollisionManager::calculateCollisionPairs(std::vector<PolygonCollider*> colliders) {
+	return (computedCollisions = narrowSAT(broadSortAndSweep(colliders)));
+}
+
+void engine::collisions::CollisionManager::handleCollisions(std::vector<PolygonCollider*> colliders) {
+	calculateCollisionPairs(colliders);
+	
+	std::vector<PolygonCollider*> uniqueColliders = {};
+	for (int i = 0; i < computedCollisions.size(); ++i) { // Fill uniqueColliders with colliders that aren't duplicates
+		PolygonCollider* c1 = computedCollisions[i]->c1;
+		PolygonCollider* c2 = computedCollisions[i]->c2;
+
+		int uniqueIndex = 0;
+		while (uniqueIndex < uniqueColliders.size() && uniqueColliders[uniqueIndex] != c1) {
+			++uniqueIndex;
+		}
+		if (uniqueIndex == uniqueColliders.size()) { // Item not found in the list
+			uniqueColliders.push_back(c1);
+		}
+
+		uniqueIndex = 0;
+		while (uniqueIndex < uniqueColliders.size() && uniqueColliders[uniqueIndex] != c2) {
+			++uniqueIndex;
+		}
+		if (uniqueIndex == uniqueColliders.size()) { // Item not found in the list
+			uniqueColliders.push_back(c2);
+		}
+	}
+	
+	for (PolygonCollider* pc : uniqueColliders) {
+		if (pc->onCollision != nullptr) {
+			((void(*)())pc->onCollision)(); // Call the oncollision function of each collider if it exists
+		}
+	}
+}
+
 
 sf::Color engine::changeAlpha(sf::Color color, int alpha) {
 	return sf::Color(color.r,color.g,color.b,alpha);

@@ -2,6 +2,10 @@
 
 
 #ifndef GAME_HPP
+
+//https://www.youtube.com/watch?v=3elKoMMuJBA
+
+#include "filesystem.hpp"
 #include "MACROS.hpp" // Makes key names easier
 #include "Controller.hpp" // Handler for user input
 #include <vector> // Dynamic Arrays
@@ -154,6 +158,13 @@ namespace engine {
 
 		int getPoints() { return circlePoints; }
 		void setPoints(int points) { circlePoints = points; }
+
+		// top, bottom are lowest and highest y values respectively
+		// left, right are lowest and highest x values respectively
+		Rect extrusion;
+		void updateExtrusion();
+
+		void* onCollision = nullptr;
 	};
 
 	// Namespace for collision management;
@@ -163,23 +174,34 @@ namespace engine {
 		bool overlap1D(float a1, float a2, float b1, float b2);
 		
 		// Classes
-		struct Collision {
+		struct CollisionPair {
 			PolygonCollider* c1 = nullptr;
 			PolygonCollider* c2 = nullptr;
 			float overlap = 0.0f;
 		};
 
-		using collisionPair = sf::Vector2<Collision*>;
+		class ColliderBound {
+		public:
+			float coord;
+			PolygonCollider* col;
+			ColliderBound(PolygonCollider* collider, float value);
+
+			bool operator < (const ColliderBound& other) const {
+				return (coord < other.coord);
+			}
+		};
 		
 		// Algorithms
-		std::vector<collisionPair> broadSortAndSweep(std::vector<PolygonCollider*> colliders);
-		std::vector<collisionPair> narrowSAT(std::vector<collisionPair> pairs);
+		std::vector<CollisionPair*> broadSortAndSweep(std::vector<PolygonCollider*> colliders);
+		std::vector<CollisionPair*> narrowSAT(std::vector<CollisionPair*> pairs);
 
 		class CollisionManager : public EngineComponent {
 		private:
-			std::vector<PolygonCollider*> colliders;
+			std::vector<CollisionPair*> computedCollisions = {};
 		public:
 			CollisionManager();
+			std::vector<CollisionPair*> calculateCollisionPairs(std::vector<PolygonCollider*> colliders);
+			void handleCollisions(std::vector<PolygonCollider*> colliders);
 		};
 	}
 
@@ -224,11 +246,17 @@ namespace engine {
 	*/
 	class Transform : public EngineComponent {
 	public:
+		// Properties
 		GameObject *parentObject;
 		sf::Vector2f size;
 		sf::Vector2f origin;
 		float rotationDegree;
 		sf::Vector2f position;
+
+		// Physics properties
+		sf::Vector2f velocity;
+		sf::Vector2f mass;
+		PolygonCollider* col;
 
 		// Constructors and destructors
 		Transform(GameObject *obj);
@@ -255,8 +283,6 @@ namespace engine {
 		void addRotation(float newAngleDegree);
 	};
 
-	// Integers with the intended use as a unique identifier
-	using objectRef = unsigned int;
 	/*
 		Game Object for use within the engine
 	*/
@@ -269,7 +295,7 @@ namespace engine {
 		Game* engine;
 	public:
 		std::string objName = "default";
-		objectRef id;
+		unsigned int id;
 
 		// Constructor and destructor
 		GameObject(Game* game);
@@ -329,15 +355,16 @@ namespace engine {
 		Camera camera;
 
 		// Collisions
-		collisions::CollisionManager* collisionManager;
+		collisions::CollisionManager* collisionManager = nullptr;
 
 		// Buffers
 		std::vector<EngineComponent*> engineComponents = {nullptr};
+		std::vector<PolygonCollider*> colliders = {};
 		std::vector<Renderable*> renderableObjects = {};
 		std::vector<Renderable*> uiRenderableObjects = {};
 
 		// Gameobjects
-		objectRef nextId = 1;
+		unsigned int nextId = 1;
 		std::vector<GameObject*> gameObjects;
 
 		// Private functions
@@ -369,7 +396,11 @@ namespace engine {
 
 		// Game update and render functions
 		void update();
+		void updateObjects();
+		void resetScene();
 		void render();
+
+		void dynamicDeleteRenderable(Renderable* r);
 
 		// Sorting algorithms
 		std::vector<Renderable*> sortRenderables(std::vector<Renderable*> renders);
@@ -380,7 +411,9 @@ namespace engine {
 
 		// Screen draw functions
 		void* drawShape(ShapeComponent *shape, bool isUI);
-		void* drawCollider(PolygonCollider* col);
+		void* drawCollider(PolygonCollider* col, bool registerThisCollider);
+		void registerCollider(PolygonCollider* col);
+		bool removeCollider(PolygonCollider* col);
 
 		// Render removal functions
 		bool removeFromRender(void *removePtr);
@@ -394,9 +427,13 @@ namespace engine {
 		GameObject* makeObject(int layer, std::vector<sf::Vector2f> polygon, PolygonCollider* col, bool toUI);
 		GameObject* makeObject(int layer, float radius, bool toUI);
 		GameObject* registerObject(GameObject* obj, bool toUI);
-		GameObject* getObject(objectRef targId);
+		GameObject* getObject(unsigned int targId);
 		bool deleteObject(GameObject* delObj);
-		bool deleteObject(objectRef targId);
+		bool deleteObject(unsigned int targId);
+
+		// Filesystem functions
+		bool loadScene(std::string path);
+		bool loadObject(std::string path);
 
 		// Controller
 		Controller controller;
