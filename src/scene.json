@@ -1,0 +1,5 @@
+{
+    "sceneName" : "testScene",
+    "resourcePaths" : [".."],
+    "objectsPaths" : ["../objects"]
+}

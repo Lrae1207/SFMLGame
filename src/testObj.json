@@ -1,0 +1,25 @@
+{
+    "name" : "square",
+
+    "position" : [0,0],
+    "size" : [1,1],
+    "configureOrigin" : true,
+    "origin" : [0,1],
+    "rotationDegree" : 0,
+
+    "velocity" : [0,0],
+    "mass" : 50,
+
+    "isVisible" : true,
+    "isCircle" : false,
+    "sides" : 3,
+    "fillColor" : [100,100,100],
+    "outlineThickness" : 2,
+    "outlineColor" : [0,0,0],
+    
+    "fitCollider" : false,
+    "vertices" : [[0,0],[0,1],[1,1],[1,0]],
+    "colliderVertices" : [[0,0],[0,1],[1,1],[1,0]],
+
+    "scriptPath" : "../../scripts/"
+}
