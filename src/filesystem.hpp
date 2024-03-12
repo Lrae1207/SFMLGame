@@ -33,13 +33,32 @@ namespace filesystem {
 
 		void setPath(std::string newPath) { path = std::stringstream(newPath); initReader(); }
 		std::string getPath() { return path.str(); initReader(); }
+		
+		void printContents();
+		std::string getContents();
 	};
+
+	enum Datatype {
+		integer,
+		boolean,
+		float,
+		
+	} 
+
+	struct parser_container {
+		char *data;
+		size_t size;
+		
+	}
 
 	// https://stackoverflow.com/questions/15206705/reading-json-file-with-boost
 	class Parser : Reader {
 	private:
 
 	public:
+		Parser(std::string path);
+
+		parser_container getValue(std::string key);
 	};
 }
 
