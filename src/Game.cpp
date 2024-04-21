@@ -81,7 +81,7 @@ sf::Vector2f engine::vmath::utof(sf::Vector2u v1) {
 };
 
 /* Default constructor and destructor for ShapeComponent */
-engine::ShapeComponent::ShapeComponent(std::vector<sf::Vector2f> polygon, GameObject *obj) {
+engine::ShapeComponent::ShapeComponent(engine::floatPolygon polygon, GameObject *obj) {
 	type_id = 5;
 	parentObject = obj;
 
@@ -92,6 +92,19 @@ engine::ShapeComponent::ShapeComponent(std::vector<sf::Vector2f> polygon, GameOb
 
 	vertices = polygon;
 
+	origin = sf::Vector2f(0.0f, 0.0f);
+}
+
+/* Default constructor and destructor for ShapeComponent */
+engine::ShapeComponent::ShapeComponent(float radius, GameObject* obj) {
+	type_id = 5;
+	parentObject = obj;
+	isCircle = true;
+
+	fillColor = sf::Color(255, 0, 255, 255);
+	outlineColor = sf::Color(0, 0, 0, 255);
+	outlineThickness = 0.0f;
+	rotationDegree = 0.0f;
 	origin = sf::Vector2f(0.0f, 0.0f);
 }
 
@@ -126,6 +139,8 @@ engine::Transform::Transform(GameObject* obj) {
 	origin = sf::Vector2f(0.0f, 0.0f);
 	parentObject = obj;
 	rotationDegree = 0;
+	mass = 1;
+	calcInverseMass();
 	if (col != nullptr) {
 		col = obj->getCollider();
 	}
@@ -152,12 +167,6 @@ void engine::Transform::addToPosition(sf::Vector2f newPosition) { position = pos
 void engine::Transform::addToOrigin(sf::Vector2f newOrigin) { origin = origin + newOrigin; };
 void engine::Transform::addRotation(float newAngleDegree) { rotationDegree += newAngleDegree; };
 
-/* Default constructor for SpriteComponent */
-engine::SpriteComponent::SpriteComponent::SpriteComponent() {
-
-}
-
-
 /* GameObject constructor and destructor */
 engine::GameObject::GameObject(Game* game) {
 	engine = game;
@@ -165,19 +174,16 @@ engine::GameObject::GameObject(Game* game) {
 	shape = new ShapeComponent({ sf::Vector2f(0,0),sf::Vector2f(100,0),sf::Vector2f(100,100) },this);
 	transform = new Transform(this);
 	collider = new PolygonCollider({ sf::Vector2f(0,0),sf::Vector2f(100,0),sf::Vector2f(100,100) },this);
+	setVisibility(false);
 }
 
 /* GameObject constructor and destructor */
-engine::GameObject::GameObject(std::vector<sf::Vector2f> polygon, Game* game) {
+engine::GameObject::GameObject(engine::floatPolygon polygon, Game* game) {
 	engine = game;
 	id = 0;
 	shape = new ShapeComponent(polygon, this);
 	transform = new Transform(this);
 	collider = new PolygonCollider(polygon, this);
-	if (polygon.size() == 1) {
-		shape->isCircle = true;
-		collider->setIsCircle(true);
-	}
 }
 
 /* GameObject constructor and destructor */
@@ -190,12 +196,22 @@ engine::GameObject::GameObject(PolygonCollider* col, Game* game) {
 }
 
 /* GameObject constructor and destructor */
-engine::GameObject::GameObject(std::vector<sf::Vector2f> polygon, PolygonCollider* col, Game* game) {
+engine::GameObject::GameObject(engine::floatPolygon polygon, PolygonCollider* col, Game* game) {
 	engine = game;
 	id = 0;
 	transform = new Transform(this);
 	shape = new ShapeComponent(polygon, this);
 	collider = col;
+}
+
+engine::GameObject::GameObject(float radius, float colliderRadius, Game* game) {
+	engine = game;
+	id = 0;
+	transform = new Transform(this);
+	shape = new ShapeComponent(radius, this);
+	collider = new PolygonCollider(colliderRadius,this);
+	shape->isCircle = true;
+	collider->setIsCircle(true);
 }
 
 
@@ -258,7 +274,7 @@ engine::Transform* engine::GameObject::getTransform() {
 	return void
 	Creates the window
 */
-void engine::Game::init() {
+void engine::Game::init(float frameCap) {
 	startTime = getTimens();
 	timeScale = 1;
 
@@ -266,7 +282,7 @@ void engine::Game::init() {
 	videoMode = sf::VideoMode(800, 600);
 
 	window = new sf::RenderWindow(videoMode, "A game", sf::Style::Titlebar | sf::Style::Close);
-	window->setFramerateLimit(120);
+	window->setFramerateLimit(frameCap);
 
 	camera.transform = new Transform(nullptr); // this goes crazy
 	camera.transform->setPosition(sf::Vector2f(0, 0));
@@ -280,12 +296,18 @@ void engine::Game::init() {
 	Constructor for game class
 	Anything that happens initially goes here
 */
-engine::Game::Game() {
+engine::Game::Game(float fps, float ups) {
+	maxFPS = fps;
+	invFPS = 1 / fps;
+	physUPS = ups;
+	invPhysUPS = 1 / ups;
+
+	init(fps);
 	debugLog("Loaded Engine(game)", LOG_GREEN);
-	init();
+	manager = GameManager(this);
 }
 
-engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f> polygon, bool toUI) {
+engine::GameObject* engine::Game::makeObject(int layer, engine::floatPolygon polygon, bool toUI) {
 	GameObject* newObject = new GameObject(polygon,this);
 	newObject->id = nextId;
 	nextId++;
@@ -311,7 +333,16 @@ engine::GameObject* engine::Game::makeObject(int layer, float radius, bool toUI)
 	return newObject;
 }
 
-engine::GameObject* engine::Game::makeObject(int layer, std::vector<sf::Vector2f> polygon, PolygonCollider* col, bool toUI) {
+engine::GameObject* engine::Game::makeObject() {
+	GameObject* newObject = new GameObject(this);
+	newObject->id = nextId++;
+	gameObjects.push_back(newObject);
+	newObject->getShapeComponent()->layer = 1;
+	newObject->getCollider()->layer = 1;
+	return newObject;
+}
+
+engine::GameObject* engine::Game::makeObject(int layer, engine::floatPolygon polygon, PolygonCollider* col, bool toUI) {
 	GameObject* newObject = new GameObject(polygon,col,this);
 	newObject->id = nextId;
 	nextId++;
@@ -355,6 +386,30 @@ bool engine::Game::deleteObject(GameObject* delObj) {
 
 bool engine::Game::deleteObject(unsigned int targId) {
 	return deleteObject(getObject(targId));
+}
+
+/* Check if a given name is taken and increment its terminating number if it is */
+std::string engine::Game::generateUniqueObjectName(std::string name) {
+	for (GameObject* g : gameObjects) {
+		if (name == g->objName) {
+			size_t i = name.size()-1;
+			/* Decrement i until it finds a non-number */
+			while (name[i] >= 0x30 && name[i] <= 0x39 && i >=0) {/* 0x30='0' 0x39='9' */
+				i--;
+			}
+
+			if (i == name.size()) { /* The last digit was not a number */
+				name += "0";
+				return name;
+			}
+
+			/* Some digits were numbers */
+			std::string newName = name.substr(0,i+1);
+			int num = std::stoi(name.substr(i+1)) + 1;
+			return newName + std::to_string(num);
+		}
+	}
+	return name;
 }
 
 // Destructor
@@ -427,7 +482,7 @@ void engine::Game::update() {
 	//collisionManager->handleCollisions(colliders);
 
 	if (!paused) {
-		updateObjects();
+		updateObjects((currentTime - lastTime) / powf(10,9));
 		tick++;
 	}
 }
@@ -435,23 +490,42 @@ void engine::Game::update() {
 /*
 	Update each individual object
 */
-void engine::Game::updateObjects() {
+void engine::Game::updateObjects(float deltaTime) {
 	for (GameObject* obj : gameObjects) {
+		/* Properties of the object */
+		Transform* t = obj->getTransform();
+		if (!t->isPhysical) { continue; }
+		ShapeComponent* c = obj->getShapeComponent();
+		PolygonCollider* p = obj->getCollider();
 
+		/* Calculate net acceleration*/
+		sf::Vector2f acceleration = sf::Vector2f(0, 0);
+		for (Force f : t->actingForces) {
+			acceleration += f.vector;
+		}
+
+		/* Semi-implicit euler integration */
+		acceleration *= t->getInverseMass(); // Make sure mass is never 0
+		t->velocity += acceleration;// * deltaTime;
+		t->position += t->velocity;// * deltaTime;
+
+		/* Call update functions */
+		manager.physicsUpdate();
 	}
 }
 
-void engine::Game::resetScene() {
-	delete manager;
+void engine::Game::stopScene() {
 	delete collisionManager;
 	for (EngineComponent* e : engineComponents) { delete e; }
 	for (PolygonCollider* c : colliders) { delete c; }
 	for (Renderable* r : renderableObjects) { dynamicDeleteRenderable(r); }
 	for (Renderable* r : uiRenderableObjects) { dynamicDeleteRenderable(r); }
 	for (GameObject* obj : gameObjects) { obj->destroy(); delete obj; }
+}
 
-	delete window;
-	init();
+void engine::Game::resetScene() {
+	stopScene();
+	init(maxFPS);
 }
 
 void engine::Game::dynamicDeleteRenderable(Renderable* r) {
@@ -484,6 +558,9 @@ void engine::Game::dynamicDeleteRenderable(Renderable* r) {
 	- Writes changes to the window
 */
 void engine::Game::render() {
+	/* Call update functions */
+	manager.update();
+
 	// Clear the screen with this color as argument
 	window->clear(sf::Color(100*backgroundBrightness, 150*backgroundBrightness, 255*backgroundBrightness, 255));
 
@@ -500,9 +577,9 @@ void engine::Game::render() {
 			continue;
 		}
 		switch (renderObj->type_id) { // Change type_id to its respective type
-		case 1:
+		case renderable_id::particle:
 			break;
-		case 2: {
+		case renderable_id::line: {
 			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
 
 			// Start, end is essentially a rect
@@ -529,10 +606,10 @@ void engine::Game::render() {
 			window->draw(drawLine); // Draw
 			break;
 		}
-		case 5: {
+		case renderable_id::shape: {
 			ShapeComponent shapeComp = *reinterpret_cast<ShapeComponent*>(renderObj);
 
-			if (!shapeComp.isVisible) { // Skip invisible objects
+			if (!shapeComp.isVisible || shapeComp.texture != nullptr) { // Skip invisible objects
 				continue;
 			}
 
@@ -567,7 +644,7 @@ void engine::Game::render() {
 
 			break;
 		}
-		case 6: {
+		case renderable_id::text: {
 			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
 			if (text->cullThis) {
 				continue;
@@ -584,6 +661,9 @@ void engine::Game::render() {
 			window->draw(drawText); // Draw
 			break;
 		}
+		case renderable_id::texture: {
+
+		}
 		default:
 			continue;
 		}
@@ -599,9 +679,9 @@ void engine::Game::render() {
 			continue;
 		}
 		switch (renderObj->type_id) { // Change type_id to its respective type
-		case 1:
+		case renderable_id::particle:
 			break;
-		case 2: {
+		case renderable_id::line: {
 			Line* line = reinterpret_cast<Line*>(renderObj); // Convert to Line*
 
 			// Start, end is essentially a rect
@@ -625,15 +705,15 @@ void engine::Game::render() {
 			window->draw(drawLine); // Draw
 			break;
 		}
-		case 3:
+		case renderable_id::circle_collider:
 			break;
-		case 4: {
+		case renderable_id::poly_collider: {
 			if (!showColliders) {
 				continue;
 			}
 
 			PolygonCollider* col = reinterpret_cast<PolygonCollider*>(renderObj);
-			std::vector<sf::Vector2f> polygon = col->getPolygon();
+			engine::floatPolygon polygon = col->getPolygon();
 			Transform transform = *col->getParent()->getTransform();
 
 			if (col->shapeIsCircle()) {
@@ -676,10 +756,10 @@ void engine::Game::render() {
 
 			break;
 		}
-		case 5: {
+		case renderable_id::shape: {
 			ShapeComponent shapeComp = *reinterpret_cast<ShapeComponent*>(renderObj);
 
-			if (!shapeComp.isVisible) { // Skip invisible objects
+			if (!shapeComp.isVisible || shapeComp.texture != nullptr) { // Skip invisible objects
 				continue;
 			}
 
@@ -699,7 +779,7 @@ void engine::Game::render() {
 				window->draw(circle);
 			} else {
 				sf::ConvexShape polygon = shapeComp.constructShape();
-				polygon.move(transform.getPosition());
+				polygon.move(transform.getPosition()); // error: Transform position not set
 				polygon.rotate(transform.getRotation());
 				polygon.scale(transform.getSize());
 
@@ -707,7 +787,7 @@ void engine::Game::render() {
 			}
 			break;
 		}
-		case 6: {
+		case renderable_id::text: {
 			Text* text = reinterpret_cast<Text*>(renderObj); // Convert to Text*
 			if (text->cullThis) {
 				continue;
@@ -723,6 +803,22 @@ void engine::Game::render() {
 			window->draw(drawText); // Draw
 			break;
 		}
+		case renderable_id::texture: {
+			Texture* texture = reinterpret_cast<Texture*>(renderObj);
+			Transform transform = *texture->getTransform();
+			sf::Sprite sprite;
+			
+			sf::Texture sfTexture;
+			sfTexture.loadFromFile(texture->getTexturePath());
+			sprite.setTexture(sfTexture);
+			sprite.move(transform.getPosition());
+			sprite.rotate(transform.getRotation());
+			sprite.setOrigin(transform.getOrigin());
+			sprite.scale(transform.getSize());
+
+			window->draw(sprite);
+			break;
+		}
 		default:
 			continue;
 		}
@@ -731,6 +827,11 @@ void engine::Game::render() {
 
 	// Write changes to window
 	window->display();
+}
+
+void engine::Game::start() {
+	/* Call start functions */
+	manager.start();
 }
 
 std::vector<engine::Renderable*> engine::Game::sortRenderables(std::vector<Renderable*> renders) {
@@ -782,14 +883,37 @@ void engine::Game::registerCollider(PolygonCollider* col) {
 	colliders.push_back(col);
 }
 
-bool engine::Game::removeCollider(PolygonCollider* col) {
-	int i = 0;
-	for (PolygonCollider* c : colliders) {
-		if (c == col) {
+void* engine::Game::drawTexture(Texture* texture, bool isUI) {
+	if (texture == nullptr) {
+		return nullptr;
+	}
+	Renderable* r = dynamic_cast<Renderable*>(texture);
+	(isUI) ? uiRenderableObjects.push_back(r) : renderableObjects.push_back(r);
+	return static_cast<void*>(r);
+}
+
+bool engine::Game::removeTexture(Texture* texture) {
+	for (int i = 0; i < renderableObjects.size(); ++i) {
+		if (renderableObjects[i] == texture) {
 			renderableObjects.erase(renderableObjects.begin() + i);
 			return true;
 		}
-		i++;
+	}
+	for (int i = 0; i < uiRenderableObjects.size(); ++i) {
+		if (uiRenderableObjects[i] == texture) {
+			uiRenderableObjects.erase(uiRenderableObjects.begin() + i);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool engine::Game::removeCollider(PolygonCollider* col) {
+	for (int i = 0; i < colliders.size(); ++i) {
+		if (colliders[i] == col) {
+			renderableObjects.erase(renderableObjects.begin() + i);
+			return true;
+		}
 	}
 	return false;
 }
@@ -819,7 +943,7 @@ bool engine::Game::removeFromUI(void* removePtr) {
 }
 
 void engine::Game::debugLog(std::string str, std::string colorStr) {
-	std::cout << "tick:" << tick << "|" << colorStr << str << LOG_RESET << "\n";
+	std::cout << "tick:" << tick << "|" << colorStr << str << LOG_RESET << std::endl;
 }
 
 void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
@@ -829,25 +953,162 @@ void* engine::Game::debugLine(sf::Vector2f start, sf::Vector2f end) {
 	return static_cast<void*>(r);
 }
 
+/* Load a scene from the path of a json file */
 bool engine::Game::loadScene(std::string path) {
-	boost::property_tree::ptree pt;
-	boost::property_tree::ini_parser::read_ini(path, pt);
-	std::cout << pt.get<std::string>("Section1.Value1") << std::endl;
-	std::cout << pt.get<std::string>("Section1.Value2") << std::endl;
+	stopScene();
+	try {
+		filesystem::Parser fileReader;
+		fileReader.initReader(path,filesystem::Filetype::JSON);
+		std::vector<std::string> sceneFiles = fileReader.getJsonArrayFromKey<std::string>({ "sceneFiles", "objectPaths"});
+		for (std::string scenePath : sceneFiles) {
+			loadObject(scenePath);
+		}
+		debugLog("Loaded scene \"" + path + "\"", LOG_GREEN);
+	} catch (...) {
+		debugLog("Failed to load scene \"" + path + "\"", LOG_RED);
+		return false;
+	}
+	return true;
 }
 
-bool engine::Game::loadObject(std::string path) {
-	boost::property_tree::ptree pt;
-	boost::property_tree::ini_parser::read_ini(path, pt);
-	std::cout << pt.get<std::string>("Section1.Value1") << std::endl;
-	std::cout << pt.get<std::string>("Section1.Value2") << std::endl;
+/* Load an object from the path of a json file */
+engine::GameObject* engine::Game::loadObject(std::string path) {
+	try {
+		filesystem::Parser fileReader;
+		fileReader.initReader(path, filesystem::Filetype::JSON);
+
+		std::string resourceType = fileReader.getJsonFromKey<std::string>({"Resource","type"});
+
+		if (resourceType == "object") {
+			// Properties
+			bool isCircle = fileReader.getJsonFromKey<bool>({ "General","isCircular" });
+			bool isColliderNull = fileReader.getJsonFromKey<bool>({ "General", "isColliderNull" });
+			bool fitCollider = fileReader.getJsonFromKey<bool>({ "General", "shouldFitCollider" });
+			bool isUI = fileReader.getJsonFromKey<bool>({ "General", "isUI" });
+
+			/* Convert JSON 2d array to list of sf::Vector2f vertices */
+			std::vector<json> verticesJSON = fileReader.getJsonArrayFromKey<json>({ "MeshProperties", "vertices" });
+			engine::floatPolygon vertices = {};
+			for (json j : verticesJSON) {
+				vertices.push_back(sf::Vector2f(j[0], j[1]));
+			}
+			std::vector<json> colliderJSON = fileReader.getJsonArrayFromKey<json>({ "PhysicsProperties", "colliderVertices" });
+			engine::floatPolygon colliderVertices = {};
+			for (json j : colliderJSON) {
+				colliderVertices.push_back(sf::Vector2f(j[0], j[1]));
+			}
+
+			// Set properties
+			GameObject* newObj;
+			if (isCircle) {
+				float radius = fileReader.getJsonFromKey<float>({ "General", "radius" });
+				if (fitCollider) {
+					newObj = new GameObject(radius, radius, this);
+				}
+				else {
+					newObj = new GameObject(radius, fileReader.getJsonFromKey<float>({ "PhysicsProperties", "colliderRadius" }), this);
+				}
+			}
+			else {
+				newObj = new GameObject(vertices, this);
+				if (!fitCollider) {
+					PolygonCollider* unfitCollider = new PolygonCollider(colliderVertices, newObj);
+					newObj->setCollider(unfitCollider);
+				}
+			}
+			ShapeComponent* shape = newObj->getShapeComponent();
+			PolygonCollider* col = newObj->getCollider();
+			Transform* transform = newObj->getTransform();
+
+			/* Set object properties */
+			newObj->objName = generateUniqueObjectName(fileReader.getJsonFromKey<std::string>({ "General", "name" }));
+			newObj->setVisibility(fileReader.getJsonFromKey<bool>({ "General", "isVisible" }));
+
+			/* Set mesh properties */
+			shape->sides = fileReader.getJsonFromKey<int>({ "MeshProperties", "circleApproxSides" });
+			shape->fillColor = fileReader.getColorFromKey({ "MeshProperties", "fillColor" });
+			shape->outlineColor = fileReader.getColorFromKey({ "MeshProperties", "outlineColor" });
+			shape->outlineThickness = fileReader.getJsonFromKey<float>({ "MeshProperties", "outlineThickness" });
+			shape->layer = fileReader.getJsonFromKey<int>({ "MeshProperties","layer" });
+
+			/* Set transform properties */
+			transform->setSize(fileReader.getVector2fFromKey({ "PhysicsProperties","size" }));
+			transform->setOrigin(fileReader.getVector2fFromKey({ "PhysicsProperties","origin" }));
+			transform->setPosition(fileReader.getVector2fFromKey({ "PhysicsProperties","position" }));
+			transform->setRotation(fileReader.getJsonFromKey<float>({ "PhysicsProperties", "rotation" }));
+			transform->velocity = fileReader.getVector2fFromKey({ "PhysicsProperties","velocity" });
+			transform->setMass(fileReader.getJsonFromKey<float>({ "PhysicsProperties","mass" }));
+
+			if (!fileReader.isKeyNull({ "MeshProperties","texturePath" })) {
+				std::string texturePath = fileReader.getJsonFromKey<std::string>({ "MeshProperties", "texturePath" });
+				sf::Texture sfTexture;
+				sfTexture.loadFromFile(texturePath);
+				Texture* texture = new Texture(transform, texturePath);
+				shape->texture = texture;
+				drawTexture(texture, isUI);
+			}
+
+			/* Set collider properties */
+			if (isColliderNull) {
+				newObj->setCollider(nullptr);
+			}
+			else {
+				col->layer = fileReader.getJsonFromKey<int>({ "PhysicsProperties","layer" });
+			}
+
+			std::vector<std::string> paths = fileReader.getJsonArrayFromKey<std::string>({ "General", "children" });
+			for (std::string childPath : paths) {
+				loadObject(childPath, newObj);
+			}
+
+			registerObject(newObj, isUI);
+			debugLog("Loaded object \"" + path + "\"", LOG_GREEN);
+			return newObj;
+		} else if (resourceType == "text") {
+
+		}
+	} catch (...) {
+		debugLog("Failed to load object \"" + path + "\"", LOG_RED);
+		return nullptr;
+	}
+	return nullptr;
 }
 
-engine::PolygonCollider::PolygonCollider(std::vector<sf::Vector2f> polygon, GameObject* obj) {
+engine::GameObject* engine::Game::loadObject(std::string path, GameObject* parent) {
+	GameObject* g = loadObject(path);
+	if (g != nullptr) {
+		g->parent = parent;
+	}
+	return g;
+}
+
+sf::Font* engine::Game::loadFont(std::string path) {
+	sf::Font f;
+	if (f.loadFromFile(path)) {
+		debugLog("Loaded font resource " + path, LOG_GREEN);
+		return &f;
+	}
+	debugLog("Failed to load font resource " + path, LOG_RED);
+	return nullptr;
+}
+
+/* Do not use, creates white square problem */
+sf::Texture* engine::Game::loadTexture(std::string path) {
+	sf::Texture *t = new sf::Texture();
+	if (t->loadFromFile(path)) {
+		debugLog("Loaded texture resource " + path, LOG_GREEN);
+		return t;
+	}
+	debugLog("Failed to load texture resource " + path, LOG_RED);
+	return nullptr;
+}
+
+engine::PolygonCollider::PolygonCollider(engine::floatPolygon polygon, GameObject* obj) {
 	vertices = polygon;
 	type_id = 4;
 	isCircle = false;
 	parentObject = obj;
+	updateExtrusion();
 }
 
 engine::PolygonCollider::PolygonCollider(Rect r, GameObject* obj) {
@@ -858,11 +1119,12 @@ engine::PolygonCollider::PolygonCollider(Rect r, GameObject* obj) {
 	vertices.push_back(sf::Vector2f(r.right, r.bottom));
 	vertices.push_back(sf::Vector2f(r.left,r.bottom));
 	parentObject = obj;
+	updateExtrusion();
 }
 
-engine::PolygonCollider::PolygonCollider(bool makeCircle, float radius, GameObject* obj) {
+engine::PolygonCollider::PolygonCollider(float radius, GameObject* obj) {
 	type_id = 4;
-	isCircle = makeCircle;
+	isCircle = true;
 	parentObject = obj;
 	vertices.push_back(sf::Vector2f(0,radius));
 }
@@ -974,6 +1236,8 @@ std::vector<engine::collisions::CollisionPair*> engine::collisions::broadSortAnd
 
 std::vector<engine::collisions::CollisionPair*> engine::collisions::narrowSAT(std::vector<CollisionPair*> colliders) {
 	// work here
+	std::vector<engine::collisions::CollisionPair*> s;
+	return s;
 }
 
 engine::collisions::CollisionManager::CollisionManager() {
@@ -1010,9 +1274,9 @@ void engine::collisions::CollisionManager::handleCollisions(std::vector<PolygonC
 	}
 	
 	for (PolygonCollider* pc : uniqueColliders) {
-		if (pc->onCollision != nullptr) {
-			((void(*)())pc->onCollision)(); // Call the oncollision function of each collider if it exists
-		}
+		//if (pc->onCollision != nullptr) {
+			//((void(*)())pc->onCollision)(); // Call the oncollision function of each collider if it exists
+		//}
 	}
 }
 
@@ -1021,7 +1285,7 @@ sf::Color engine::changeAlpha(sf::Color color, int alpha) {
 	return sf::Color(color.r,color.g,color.b,alpha);
 }
 
-std::vector<sf::Vector2f> engine::rectToPolygon(Rect r) {
+engine::floatPolygon engine::rectToPolygon(Rect r) {
 	return { sf::Vector2f(r.left,r.top), sf::Vector2f(r.right,r.top), sf::Vector2f(r.right,r.bottom), sf::Vector2f(r.left,r.bottom) };
 }
 engine::Line::Line() {

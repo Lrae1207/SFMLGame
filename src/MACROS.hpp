@@ -75,6 +75,13 @@
 #define C_LGRAY1 sf::Color(150,150,150)
 #define C_LGRAY2 sf::Color(200,200,200)
 #define C_WHITE sf::Color(255,255,255)
+#define C_GREEN sf::Color(0,255,0)
+#define C_BLUE sf::Color(0,0,255)
+#define C_RED sf::Color(255,0,0)
+#define C_PINK sf::Color(175,0,0)
+#define C_LPINK sf::Color(100,0,0)
+#define C_LBLUE sf::Color(0,0,100)
+#define C_LGREEN sf::Color(0,100,0)
 
 /* Text output colors */
 #define LOG_BLACK     "\x1b[30m"

@@ -18,6 +18,7 @@ class Controller {
 private:
 	// This is a map containing all the needed inputs and whether they were pressed between the current and last update
 	std::map<sf::Keyboard::Key, bool> keyDownMap;
+
 	// Private functions
 public:
 	// Constructor and destructors

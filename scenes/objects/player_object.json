@@ -1,0 +1,44 @@
+{
+  "Resource": {
+    "type" :  "object"
+  },
+
+  "General": {
+    "name": "mainMenu",
+    "isVisible" : true,
+    "isCircular" : false,
+    "isUI" :  true,
+    "radius": 0,
+    "isColliderNull": true,
+    "shouldFitCollider": false,
+     "children" : []
+  },
+
+  "PhysicsProperties": {
+    "size": [ 1, 1 ],
+    "origin": [ 0, 0 ],
+    "rotation": 0,
+    "position": [ 100, 100 ],
+    "colliderVertices": [],
+    "colliderRadius": 0,
+    "velocity": [ 0, 0 ],
+    "mass": 1,
+    "layer": 0
+  },
+
+
+  "MeshProperties": {
+    "circleApproxSides": 3,
+    "vertices": [
+      [ 0, 0 ],
+      [ 0, 250 ],
+      [ 250, 250 ],
+      [ 250, 0 ]
+    ],
+    "fillColor": [ 100, 100, 100, 200 ],
+    "outlineColor": [ 100, 100, 100, 200 ],
+    "outlineThickness": 5,
+    "texturePath": "./playersprite.png",
+    "layer" :  0
+  }
+}

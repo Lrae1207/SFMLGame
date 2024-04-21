@@ -4,14 +4,15 @@
 // Internal function
 #include "InternalGameFunction.hpp"
 
+/* I wouldn't mess with this file too much */
 int main() {
-	engine::Game game;
+	/* 2 parameters are the framerate cap and physics update cap */
+	engine::Game game(60,120);
 
-	// Create an instance of each internal game function object
+	/* Parameter is the path of a scene to load */
+	//game.loadScene("../scenes/game_scene.json");
 
-	/* UI */
-	intern::PauseMenu pauseMenu(&game);
-	game.debugLog("Loaded GameObject(pauseMenu)", LOG_GREEN);
+	game.start();
 
 	// While the game is active
 	while (game.windowActive()) {

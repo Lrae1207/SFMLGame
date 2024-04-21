@@ -1,0 +1,8 @@
+{
+  "sceneTitle" : "main_menu",
+  "sceneFiles": {
+    "objectPaths": [
+      "./objects/player_object.json"
+    ]
+  }
+}
